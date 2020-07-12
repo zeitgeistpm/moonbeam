@@ -42,6 +42,7 @@ pallet-transaction-payment-rpc-runtime-api = { version = "2.0.0-dev", default-fe
 
 frontier-rpc-primitives = { default-features = false, path = "../vendor/frontier/rpc/primitives" }
 ethereum = { version = "0.1.0", default-features = false, package = "pallet-ethereum", path = "../vendor/frontier/frame/ethereum" }
+moonbeam-primitives = { version = "0.1.0", default-features = false, path = "../primitives" }
 
 [build-dependencies]
 wasm-builder-runner = { version = "1.0.5", package = "substrate-wasm-builder-runner", path = "../vendor/frontier/vendor/substrate/utils/wasm-builder-runner" }
@@ -69,6 +70,7 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
+	"moonbeam-primitives/std",
 	"sudo/std",
 	"system/std",
 	"timestamp/std",
