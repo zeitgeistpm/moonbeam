@@ -35,6 +35,8 @@ sp-debug-derive = { version = "2.0.0-dev", path = "../vendor/frontier/vendor/sub
 sp-externalities = { version = "0.8.0-dev", optional = true, path = "../vendor/frontier/vendor/substrate/primitives/externalities" }
 sp-storage = { version = "2.0.0-dev", default-features = false, path = "../vendor/frontier/vendor/substrate/primitives/storage" }
 sp-core = { version = "2.0.0-dev", default-features = false, path = "../vendor/frontier/vendor/substrate/primitives/core" }
+sp-runtime = { version = "2.0.0-dev", default-features = false, path = "../vendor/frontier/vendor/substrate/primitives/runtime" }
+frame-support = { version = "2.0.0-dev", default-features = false, path = "../vendor/frontier/vendor/substrate/frame/support" }
 parity-util-mem = { version = "0.6.1", default-features = false, features = ["primitive-types"] }
 futures = { version = "0.3.1", optional = true }
 
@@ -77,6 +79,8 @@ std = [
 	"hash256-std-hasher/std",
 	"hash-db/std",
 	"sp-std/std",
+	"sp-runtime/std",
+	"frame-support/std",
 	"serde",
 	"twox-hash/std",
 	"blake2-rfc/std",

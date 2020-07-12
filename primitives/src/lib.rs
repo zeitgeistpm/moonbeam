@@ -1197,3 +1197,33 @@ mod tests {
 		);
 	}
 }
+
+// type AccountId = frame_support::Parameter + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerializeDeserialize + std::fmt::Debug + sp_runtime::traits::MaybeDisplay + Ord
+// 		+ Default;
+
+pub fn test_account_parameter<T: frame_support::Parameter>(s: T) {
+	println!("account: {:?}", s)
+}
+pub fn test_account_member<T: sp_runtime::traits::Member>(s: T) {
+	println!("account: {:?}", s)
+}
+pub fn test_account_deserialize<T: sp_runtime::traits::MaybeSerializeDeserialize + std::fmt::Debug>(s: T) {
+	println!("account: {:?}", s)
+}
+pub fn test_account_display<T: std::fmt::Display>(s: T) {
+	println!("account: {}", s)
+}
+pub fn test_account_ord<T: Ord>(s: T, s2: T) {
+	println!("account: {}", s > s2)
+}
+
+pub fn test() {
+	test_account_parameter(AccountId32::default());
+	test_account_member(AccountId32::default());
+	test_account_deserialize(AccountId32::default());
+	test_account_ord(AccountId32::default(), AccountId32::default());
+	
+	#[cfg(feature = "std")]
+	test_account_display(AccountId32::default());
+}
+
