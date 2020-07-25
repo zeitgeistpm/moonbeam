@@ -2953,12 +2953,18 @@ dependencies = [
 name = "moonbeam-runtime"
 version = "0.1.0"
 dependencies = [
+ "base58",
+ "blake2-rfc",
+ "ed25519-dalek",
  "frame-executive",
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
  "frontier-rpc-primitives",
- "moonbeam-primitives",
+ "hex",
+ "lazy_static",
+ "libsecp256k1",
+ "merlin",
  "pallet-aura",
  "pallet-balances",
  "pallet-ethereum 0.1.0",
@@ -2970,7 +2976,12 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
+ "parking_lot 0.10.2",
+ "rand 0.7.3",
+ "regex",
+ "schnorrkel",
  "serde",
+ "sha2 0.8.2",
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -2979,11 +2990,15 @@ dependencies = [
  "sp-io",
  "sp-offchain",
  "sp-runtime",
+ "sp-runtime-interface",
  "sp-session",
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder-runner",
+ "tiny-keccak",
+ "twox-hash",
+ "zeroize",
 ]
 
 [[package]]
