@@ -55,7 +55,7 @@ pub enum Infallible {}
 /// The length of the junction identifier. Note that this is also referred to as the
 /// `CHAIN_CODE_LENGTH` in the context of Schnorrkel.
 #[cfg(feature = "full_crypto")]
-pub const JUNCTION_ID_LEN: usize = 32;
+pub const JUNCTION_ID_LEN: usize = 20;
 
 /// Similar to `From`, except that the onus is on the part of the caller to ensure
 /// that data passed in makes sense. Basically, you're not guaranteed to get anything
@@ -574,55 +574,55 @@ pub trait Public:
 	fn to_public_crypto_pair(&self) -> CryptoTypePublicPair;
 }
 
-/// An opaque 32-byte cryptographic identifier.
+/// An opaque 20-byte cryptographic identifier.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Default, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Hash))]
-pub struct AccountId32([u8; 32]);
+pub struct AccountId20([u8; 20]);
 
-impl UncheckedFrom<sp_core::hash::H256> for AccountId32 {
-	fn unchecked_from(h: sp_core::hash::H256) -> Self {
-		AccountId32(h.into())
+impl UncheckedFrom<sp_core::hash::H160> for AccountId20 {
+	fn unchecked_from(h: sp_core::hash::H160) -> Self {
+		AccountId20(h.into())
 	}
 }
 
 #[cfg(feature = "std")]
-impl Ss58Codec for AccountId32 {}
+impl Ss58Codec for AccountId20 {}
 
-impl AsRef<[u8]> for AccountId32 {
+impl AsRef<[u8]> for AccountId20 {
 	fn as_ref(&self) -> &[u8] {
 		&self.0[..]
 	}
 }
 
-impl AsMut<[u8]> for AccountId32 {
+impl AsMut<[u8]> for AccountId20 {
 	fn as_mut(&mut self) -> &mut [u8] {
 		&mut self.0[..]
 	}
 }
 
-impl AsRef<[u8; 32]> for AccountId32 {
-	fn as_ref(&self) -> &[u8; 32] {
+impl AsRef<[u8; 20]> for AccountId20 {
+	fn as_ref(&self) -> &[u8; 20] {
 		&self.0
 	}
 }
 
-impl AsMut<[u8; 32]> for AccountId32 {
-	fn as_mut(&mut self) -> &mut [u8; 32] {
+impl AsMut<[u8; 20]> for AccountId20 {
+	fn as_mut(&mut self) -> &mut [u8; 20] {
 		&mut self.0
 	}
 }
 
-impl From<[u8; 32]> for AccountId32 {
-	fn from(x: [u8; 32]) -> AccountId32 {
-		AccountId32(x)
+impl From<[u8; 20]> for AccountId20 {
+	fn from(x: [u8; 20]) -> AccountId20 {
+		AccountId20(x)
 	}
 }
 
-impl<'a> sp_std::convert::TryFrom<&'a [u8]> for AccountId32 {
+impl<'a> sp_std::convert::TryFrom<&'a [u8]> for AccountId20 {
 	type Error = ();
-	fn try_from(x: &'a [u8]) -> Result<AccountId32, ()> {
-		if x.len() == 32 {
-			let mut r = AccountId32::default();
+	fn try_from(x: &'a [u8]) -> Result<AccountId20, ()> {
+		if x.len() == 20 {
+			let mut r = AccountId20::default();
 			r.0.copy_from_slice(x);
 			Ok(r)
 		} else {
@@ -631,32 +631,52 @@ impl<'a> sp_std::convert::TryFrom<&'a [u8]> for AccountId32 {
 	}
 }
 
-impl From<AccountId32> for [u8; 32] {
-	fn from(x: AccountId32) -> [u8; 32] {
+impl From<AccountId20> for [u8; 20] {
+	fn from(x: AccountId20) -> [u8; 20] {
 		x.0
 	}
 }
 
-impl From<sr25519::Public> for AccountId32 {
+
+// fn convert_account_id(account_id: &A) -> H160 {
+// 	let account_id = H::hash(account_id.as_ref());
+// 	let account_id_len = account_id.as_ref().len();
+// 	let mut value = [0u8; 20];
+// 	let value_len = value.len();
+
+// 	if value_len > account_id_len {
+// 		value[(value_len - account_id_len)..].copy_from_slice(account_id.as_ref());
+// 	} else {
+// 		value.copy_from_slice(&account_id.as_ref()[(account_id_len - value_len)..]);
+// 	}
+
+// 	H160::from(value)
+// }
+
+impl From<sr25519::Public> for AccountId20 {
 	fn from(k: sr25519::Public) -> Self {
-		k.0.into()
+		let mut value = [0u8; 20];
+		value.copy_from_slice(&k.0[(32 - 20)..]);
+		value.into()
 	}
 }
 
-impl From<ed25519::Public> for AccountId32 {
+impl From<ed25519::Public> for AccountId20 {
 	fn from(k: ed25519::Public) -> Self {
-		k.0.into()
+		let mut value = [0u8; 20];
+		value.copy_from_slice(&k.0[(32 - 20)..]);
+		value.into()
 	}
 }
 
 #[cfg(feature = "std")]
-impl std::fmt::Display for AccountId32 {
+impl std::fmt::Display for AccountId20 {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}", self.to_ss58check())
 	}
 }
 
-impl sp_std::fmt::Debug for AccountId32 {
+impl sp_std::fmt::Debug for AccountId20 {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		let s = self.to_ss58check();
@@ -670,14 +690,14 @@ impl sp_std::fmt::Debug for AccountId32 {
 }
 
 #[cfg(feature = "std")]
-impl serde::Serialize for AccountId32 {
+impl serde::Serialize for AccountId20 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
 		serializer.serialize_str(&self.to_ss58check())
 	}
 }
 
 #[cfg(feature = "std")]
-impl<'de> serde::Deserialize<'de> for AccountId32 {
+impl<'de> serde::Deserialize<'de> for AccountId20 {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
 		Ss58Codec::from_ss58check(&String::deserialize(deserializer)?)
 			.map_err(|e| serde::de::Error::custom(format!("{:?}", e)))
@@ -1205,7 +1225,7 @@ mod tests {
 
 	#[test]
 	fn account_is_matching_traits() {
-		let a = AccountId32::default();
+		let a = AccountId20::default();
 		test_account_parameter(a);
 	}
 }

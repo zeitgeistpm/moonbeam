@@ -62,7 +62,7 @@ pub type Signature = signer::MultiSignature;
 
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
-pub type AccountId = account::AccountId32;
+pub type AccountId = account::AccountId20;
 
 /// The type for looking up accounts. We don't expect more than 4 billion of them, but you
 /// never know...

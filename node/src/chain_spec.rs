@@ -117,6 +117,9 @@ fn testnet_genesis(
 			code: vec![],
 		},
 	);
+	for ac in endowed_accounts.clone() {
+		log::info!("Using account: {:?}", ac);
+	}
 
 	GenesisConfig {
 		system: Some(SystemConfig {

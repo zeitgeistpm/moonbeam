@@ -100,12 +100,24 @@ impl AsRef<[u8]> for MultiSigner {
 }
 
 impl sp_runtime::traits::IdentifyAccount for MultiSigner {
-	type AccountId = super::account::AccountId32;
-	fn into_account(self) -> super::account::AccountId32 {
+	type AccountId = super::account::AccountId20;
+	fn into_account(self) -> super::account::AccountId20 {
 		match self {
-			MultiSigner::Ed25519(who) => <[u8; 32]>::from(who).into(),
-			MultiSigner::Sr25519(who) => <[u8; 32]>::from(who).into(),
-			MultiSigner::Ecdsa(who) => sp_io::hashing::blake2_256(&who.as_ref()[..]).into(),
+			MultiSigner::Ed25519(who) => {
+				let mut value = [0u8; 20];
+				value.copy_from_slice(&who.0[(32 - 20)..]);
+				value.into()
+			},
+			MultiSigner::Sr25519(who) => {
+				let mut value = [0u8; 20];
+				value.copy_from_slice(&who.0[(32 - 20)..]);
+				value.into()
+			},
+			MultiSigner::Ecdsa(who) => {
+				let mut value = [0u8; 20];
+				value.copy_from_slice(&sp_io::hashing::blake2_256(&who.as_ref()[..])[(32 - 20)..]);
+				value.into()
+			}
 		}
 	}
 }
@@ -162,16 +174,22 @@ impl std::fmt::Display for MultiSigner {
 
 impl sp_runtime::traits::Verify for MultiSignature {
 	type Signer = MultiSigner;
-	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(&self, mut msg: L, signer: &super::account::AccountId32) -> bool {
+	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(&self, mut msg: L, signer: &super::account::AccountId20) -> bool {
 		match (self, signer) {
-			(MultiSignature::Ed25519(ref sig), who) => true,
-			(MultiSignature::Sr25519(ref sig), who) => true,
+			(MultiSignature::Ed25519(ref sig), who) => {
+				true // TODO: Remove this unsafe code
+			},
+			(MultiSignature::Sr25519(ref sig), who) => {
+				true // TODO: Remove this unsafe code
+			},
 			(MultiSignature::Ecdsa(ref sig), who) => {
 				let m = sp_io::hashing::blake2_256(msg.get());
 				match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m) {
-					Ok(pubkey) =>
-						&sp_io::hashing::blake2_256(pubkey.as_ref())
-							== <dyn AsRef<[u8; 32]>>::as_ref(who),
+					Ok(pubkey) => {
+						let mut value = [0u8; 20];
+						value.copy_from_slice(&sp_io::hashing::blake2_256(pubkey.as_ref())[(32 - 20)..]);
+						&value == <dyn AsRef<[u8; 20]>>::as_ref(who)
+					},
 					_ => false,
 				}
 			}
