@@ -19,7 +19,7 @@
 //! Cryptographic utilities.
 // end::description[]
 
-use sp_core::{sr25519, ed25519};
+use sp_core::{sr25519, ed25519, H160};
 use sp_std::hash::Hash;
 use sp_std::vec::Vec;
 use sp_std::str;
@@ -41,6 +41,8 @@ use zeroize::Zeroize;
 #[doc(hidden)]
 pub use sp_std::ops::Deref;
 use sp_runtime_interface::pass_by::PassByInner;
+
+use evm::AddressMapping;
 
 /// The root phrase for our publicly known keys.
 pub const DEV_PHRASE: &str = "bottom drive obey lake curtain smoke basket hold race lonely fit walk";
@@ -637,6 +639,12 @@ impl From<AccountId20> for [u8; 20] {
 	}
 }
 
+/// Identity address mapping.
+pub struct IdentityAddressMapping;
+
+impl AddressMapping<AccountId20> for IdentityAddressMapping {
+	fn into_account_id(address: H160) -> AccountId20 { address.to_fixed_bytes().into() }
+}
 
 // fn convert_account_id(account_id: &A) -> H160 {
 // 	let account_id = H::hash(account_id.as_ref());
