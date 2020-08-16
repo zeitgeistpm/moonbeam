@@ -38,7 +38,7 @@ use sp_runtime_interface::pass_by::PassByInner;
 #[cfg(feature = "std")]
 use std::str::FromStr;
 
-use evm::AddressMapping;
+use frame_evm::AddressMapping;
 
 /// The root phrase for our publicly known keys.
 pub const DEV_PHRASE: &str = "bottom drive obey lake curtain smoke basket hold race lonely fit walk";
