@@ -19,7 +19,7 @@
 //! Cryptographic utilities.
 // end::description[]
 
-use sp_core::{sr25519, ed25519, H160};
+use sp_core::{H160};
 use sp_std::hash::Hash;
 use sp_std::vec::Vec;
 use sp_std::str;
@@ -41,6 +41,8 @@ use zeroize::Zeroize;
 #[doc(hidden)]
 pub use sp_std::ops::Deref;
 use sp_runtime_interface::pass_by::PassByInner;
+#[cfg(feature = "std")]
+use std::str::FromStr;
 
 use evm::AddressMapping;
 
@@ -267,6 +269,8 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + Default {
 	/// Some if the string is a properly encoded SS58Check address.
 	#[cfg(feature = "std")]
 	fn from_ss58check(s: &str) -> Result<Self, PublicError> {
+		log::trace!(target:"evm", "from_ss58check: {}", s);
+		//panic!("oups");
 		Self::from_ss58check_with_version(s)
 			.and_then(|(r, v)| match v {
 				v if !v.is_custom() => Ok(r),
@@ -277,16 +281,21 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + Default {
 	/// Some if the string is a properly encoded SS58Check address.
 	#[cfg(feature = "std")]
 	fn from_ss58check_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
+		log::trace!(target:"evm", "from_ss58check_with_version: {}", s);
 		let mut res = Self::default();
 		let len = res.as_mut().len();
-		let d = s.from_base58().map_err(|_| PublicError::BadBase58)?; // failure here would be invalid encoding.
-		if d.len() != len + 3 {
+		let d = s.from_base58().map_err(|e| {
+			log::trace!(target:"evm", "from_base58 failed: {:?} - {} len", e, len);
+			PublicError::BadBase58
+		})?; // failure here would be invalid encoding.
+		log::trace!(target:"evm", "SS58 decoded: [{}][{}] {:?} {} vs {} + 2", d[0], d[1], H160::from_slice(&d[2..]), d.len(), len);
+		if d.len() != len + 2 {
 			// Invalid length.
 			return Err(PublicError::BadLength);
 		}
 		let ver = d[0].try_into().map_err(|_: ()| PublicError::UnknownVersion)?;
 
-		if d[len + 1..len + 3] != ss58hash(&d[0..len + 1]).as_bytes()[0..2] {
+		if d[len + 1..len + 2] != ss58hash(&d[0..len + 1]).as_bytes()[0..2] {
 			// Invalid checksum.
 			return Err(PublicError::InvalidChecksum);
 		}
@@ -297,12 +306,19 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + Default {
 	/// a derivation path following.
 	#[cfg(feature = "std")]
 	fn from_string(s: &str) -> Result<Self, PublicError> {
-		Self::from_string_with_version(s)
-			.and_then(|(r, v)| match v {
-				v if !v.is_custom() => Ok(r),
-				v if v == *DEFAULT_VERSION.lock() => Ok(r),
-				_ => Err(PublicError::UnknownVersion),
-			})
+		log::trace!(target:"evm", "from_string {}: {}", s.len(), s);
+		if s.len() == 42 {
+			let mut res = Self::default();
+			res.as_mut().copy_from_slice(&H160::from_str(&s[2..42]).unwrap()[..]);
+			Ok(res)
+		} else {
+			Self::from_string_with_version(s)
+				.and_then(|(r, v)| match v {
+					v if !v.is_custom() => Ok(r),
+					v if v == *DEFAULT_VERSION.lock() => Ok(r),
+					_ => Err(PublicError::UnknownVersion),
+				})
+		}
 	}
 
 	/// Return the ss58-check string for this key.
@@ -322,6 +338,7 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + Default {
 	/// a derivation path following.
 	#[cfg(feature = "std")]
 	fn from_string_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
+		log::trace!(target:"evm", "from_string_with_version: {}", s);
 		Self::from_ss58check_with_version(s)
 	}
 }
@@ -504,6 +521,7 @@ pub fn set_default_ss58_version(version: Ss58AddressFormat) {
 #[cfg(feature = "std")]
 impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Default + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
+		log::trace!(target:"evm", "from_string-: {}", s);
 		let re = Regex::new(r"^(?P<ss58>[\w\d ]+)?(?P<path>(//?[^/]+)*)$")
 			.expect("constructed from known-good static value; qed");
 		let cap = re.captures(s).ok_or(PublicError::InvalidFormat)?;
@@ -535,6 +553,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Default + Derive> Ss58Codec for T {
 	}
 
 	fn from_string_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
+		log::trace!(target:"evm", "from_string_with_version-: {}", s);
 		let re = Regex::new(r"^(?P<ss58>[\w\d ]+)?(?P<path>(//?[^/]+)*)$")
 			.expect("constructed from known-good static value; qed");
 		let cap = re.captures(s).ok_or(PublicError::InvalidFormat)?;
@@ -661,22 +680,6 @@ impl AddressMapping<AccountId20> for IdentityAddressMapping {
 // 	H160::from(value)
 // }
 
-impl From<sr25519::Public> for AccountId20 {
-	fn from(k: sr25519::Public) -> Self {
-		let mut value = [0u8; 20];
-		value.copy_from_slice(&k.0[(32 - 20)..]);
-		value.into()
-	}
-}
-
-impl From<ed25519::Public> for AccountId20 {
-	fn from(k: ed25519::Public) -> Self {
-		let mut value = [0u8; 20];
-		value.copy_from_slice(&k.0[(32 - 20)..]);
-		value.into()
-	}
-}
-
 #[cfg(feature = "std")]
 impl std::fmt::Display for AccountId20 {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -707,7 +710,8 @@ impl serde::Serialize for AccountId20 {
 #[cfg(feature = "std")]
 impl<'de> serde::Deserialize<'de> for AccountId20 {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
-		Ss58Codec::from_ss58check(&String::deserialize(deserializer)?)
+		log::trace!(target:"evm", "deserialize");
+		AccountId20::from_string(&String::deserialize(deserializer)?)
 			.map_err(|e| serde::de::Error::custom(format!("{:?}", e)))
 	}
 }
