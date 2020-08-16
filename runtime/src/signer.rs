@@ -1,10 +1,8 @@
 
 
-use sp_core::{ H160, H256, U256, ecdsa};
+use sp_core::{H256, ecdsa};
 use codec::{Decode, Encode};
 
-#[cfg(feature = "std")]
-use sp_std::convert::TryInto;
 use sp_std::convert::TryFrom;
 
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]

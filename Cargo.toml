@@ -9,4 +9,4 @@ exclude = ["vendor"]
 panic = 'unwind'
 
 [patch.crates-io]
-ethereum = { path = "vendor/ethereum" }
+ethereum = { path = "vendor/frontier/vendor/ethereum" }

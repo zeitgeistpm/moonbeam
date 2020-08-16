@@ -289,6 +289,21 @@ checksum = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 
 [[package]]
 name = "backtrace"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "346d7644f0b5f9bc73082d3b2236b69a05fd35cce0cfa3724e184e6a5c9e2a2f"
+dependencies = [
+ "backtrace-sys",
+ "cfg-if",
+ "dbghelp-sys",
+ "kernel32-sys",
+ "libc",
+ "rustc-demangle",
+ "winapi 0.2.8",
+]
+
+[[package]]
+name = "backtrace"
 version = "0.3.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05100821de9e028f12ae3d189176b41ee198341eb8f369956407fea2f5cc666c"
@@ -299,6 +314,16 @@ dependencies = [
  "miniz_oxide 0.3.7",
  "object",
  "rustc-demangle",
+]
+
+[[package]]
+name = "backtrace-sys"
+version = "0.1.37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18fbebbe1c9d1f383a9cc7e8ccdb471b91c8d024ee9c2ca5b5346121fe8b4399"
+dependencies = [
+ "cc",
+ "libc",
 ]
 
 [[package]]
@@ -796,6 +821,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72aa14c04dfae8dd7d8a2b1cb7ca2152618cd01336dbfe704b8dcbf8d41dbd69"
 
 [[package]]
+name = "dbghelp-sys"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97590ba53bcb8ac28279161ca943a924d1fd4a8fb3fa63302591647c4fc5b850"
+dependencies = [
+ "winapi 0.2.8",
+ "winapi-build",
+]
+
+[[package]]
 name = "derive_more"
 version = "0.99.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1036,7 +1071,7 @@ version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
 dependencies = [
- "backtrace",
+ "backtrace 0.3.49",
  "failure_derive",
 ]
 
@@ -2885,6 +2920,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "libsecp256k1",
+ "log",
  "merlin",
  "pallet-aura",
  "pallet-balances",
@@ -2916,6 +2952,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "stacktrace",
  "substrate-wasm-builder-runner",
  "tiny-keccak",
  "twox-hash",
@@ -3028,7 +3065,9 @@ dependencies = [
  "frontier-rpc",
  "frontier-rpc-primitives",
  "futures 0.3.5",
+ "hex-literal",
  "jsonrpc-core",
+ "libsecp256k1",
  "log",
  "moonbeam-runtime",
  "pallet-ethereum 0.1.0",
@@ -3048,6 +3087,7 @@ dependencies = [
  "sc-rpc-api",
  "sc-service",
  "sc-transaction-pool",
+ "sha3",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -3264,6 +3304,7 @@ dependencies = [
  "frame-system",
  "frontier-rpc-primitives",
  "libsecp256k1",
+ "log",
  "pallet-balances",
  "pallet-evm",
  "pallet-timestamp",
@@ -3290,6 +3331,7 @@ dependencies = [
  "evm",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-balances",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -5520,6 +5562,7 @@ name = "sp-api-proc-macro"
 version = "2.0.0-rc5"
 dependencies = [
  "blake2-rfc",
+ "log",
  "proc-macro-crate",
  "proc-macro2",
  "quote 1.0.7",
@@ -5786,7 +5829,7 @@ dependencies = [
 name = "sp-panic-handler"
 version = "2.0.0-rc5"
 dependencies = [
- "backtrace",
+ "backtrace 0.3.49",
  "log",
 ]
 
@@ -6000,6 +6043,15 @@ name = "stable_deref_trait"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
+
+[[package]]
+name = "stacktrace"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6660fe7929429325b444e84deca619979cfebdd6fa002eda9aa4e56f9d8e47e8"
+dependencies = [
+ "backtrace 0.2.3",
+]
 
 [[package]]
 name = "static_assertions"

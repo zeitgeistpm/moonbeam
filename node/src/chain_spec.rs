@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_core::{Pair, Public, sr25519, H160, U256};
+use sp_core::{Pair, Public, ecdsa, H160, U256, H512, H256};
 use moonbeam_runtime::{
 	AccountId, AuraConfig, BalancesConfig, EVMConfig, EthereumConfig, GenesisConfig, GrandpaConfig,
 	SudoConfig, SystemConfig, WASM_BINARY, Signature
@@ -26,6 +26,8 @@ use sp_runtime::traits::{Verify, IdentifyAccount};
 use sc_service::ChainType;
 use std::collections::BTreeMap;
 use std::str::FromStr;
+use hex_literal::hex;
+use sha3::{Digest, Keccak256};
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -73,13 +75,13 @@ pub fn development_config() -> Result<ChainSpec, String> {
 				authority_keys_from_seed("Alice"),
 			],
 			// Sudo account
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<ecdsa::Public>("Alice"),
 			// Pre-funded accounts
 			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				get_account_id_from_seed::<ecdsa::Public>("Alice"),
+				get_account_id_from_seed::<ecdsa::Public>("Bob"),
+				get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
+				get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
 			],
 			true,
 		),
@@ -113,21 +115,21 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 				authority_keys_from_seed("Bob"),
 			],
 			// Sudo account
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<ecdsa::Public>("Alice"),
 			// Pre-funded accounts
 			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+				get_account_id_from_seed::<ecdsa::Public>("Alice"),
+				get_account_id_from_seed::<ecdsa::Public>("Bob"),
+				get_account_id_from_seed::<ecdsa::Public>("Charlie"),
+				get_account_id_from_seed::<ecdsa::Public>("Dave"),
+				get_account_id_from_seed::<ecdsa::Public>("Eve"),
+				get_account_id_from_seed::<ecdsa::Public>("Ferdie"),
+				get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
+				get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
+				get_account_id_from_seed::<ecdsa::Public>("Charlie//stash"),
+				get_account_id_from_seed::<ecdsa::Public>("Dave//stash"),
+				get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
+				get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 			],
 			true,
 		),
@@ -166,6 +168,16 @@ fn testnet_genesis(
 	for ac in endowed_accounts.clone() {
 		log::info!("Using account: {:?}", ac);
 	}
+
+	let sec = hex!("99B3C12287537E38C90A9219D4CB074A89A16E9CDB20BF85728EBD97C343E342");
+	let secret = secp256k1::SecretKey::parse_slice(&sec).unwrap();
+	let public = secp256k1::PublicKey::from_secret_key(&secret);
+
+	log::info!("Using priv: {:?}", H256::from_slice(&secret.serialize()[0..32]));
+	log::info!("Using pub: {:?}", H512::from_slice(&public.serialize()[1..65]));
+	log::info!("Using compressed: {:?}", H256::from_slice(&public.serialize_compressed()[1..33]));
+	log::info!("Using address: {:?}", H160::from(H256::from_slice(Keccak256::digest(&public.serialize()[1..65]).as_slice())));
+	log::info!("Using gerald: {:?}", ecdsa::Pair::from_seed_slice(&sec).unwrap().public());
 
 	GenesisConfig {
 		system: Some(SystemConfig {

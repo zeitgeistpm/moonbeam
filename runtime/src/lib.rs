@@ -12,11 +12,11 @@ use sp_std::{prelude::*, marker::PhantomData};
 use codec::{Encode, Decode};
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, U256, H160, H256};
 use sp_runtime::{
-	ApplyExtrinsicResult, generic, create_runtime_str, impl_opaque_keys, MultiSignature,
+	ApplyExtrinsicResult, generic, create_runtime_str, impl_opaque_keys,
 	transaction_validity::{TransactionValidity, TransactionSource},
 };
 use sp_runtime::traits::{
-	BlakeTwo256, Block as BlockT, IdentityLookup, Verify, IdentifyAccount, NumberFor, Saturating,
+	BlakeTwo256, Block as BlockT, IdentityLookup, NumberFor, Saturating,
 };
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -43,7 +43,7 @@ pub use frame_support::{
 	ConsensusEngineId,
 };
 use ethereum::{Block as EthereumBlock, Transaction as EthereumTransaction, Receipt as EthereumReceipt};
-use evm::{Account as EVMAccount, FeeCalculator, HashedAddressMapping, EnsureAddressTruncated, EnsureAddressSame, EnsureAddressNever, EnsureAddressRoot};
+use evm::{Account as EVMAccount, FeeCalculator, EnsureAddressNever, EnsureAddressRoot};
 use frontier_rpc_primitives::{TransactionStatus};
 
 pub mod constants;

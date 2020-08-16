@@ -47,10 +47,14 @@ sc-client-api = { version = "2.0.0-dev", path = "../vendor/frontier/vendor/subst
 sp-runtime = { version = "2.0.0-dev", path = "../vendor/frontier/vendor/substrate/primitives/runtime" }
 sc-basic-authorship = { path = "../vendor/frontier/vendor/substrate/client/basic-authorship" }
 sp-block-builder = { path = "../vendor/frontier/vendor/substrate/primitives/block-builder" }
+hex-literal = "0.2.1"
+sha3 = { version = "0.8", default-features = false }
 
 moonbeam-runtime = { path = "../runtime" }
 frontier-rpc = { version = "0.1.0", path = "../vendor/frontier/rpc" }
 frontier-rpc-primitives = { version = "0.1.0", path = "../vendor/frontier/rpc/primitives" }
+
+libsecp256k1 = { version = "0.3.5", features = ["hmac"] }
 
 [build-dependencies]
 substrate-build-script-utils = { version = "2.0.0-dev", path = "../vendor/frontier/vendor/substrate/utils/build-script-utils" }
