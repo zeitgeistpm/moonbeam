@@ -1,5 +1,6 @@
 import Web3 from "web3";
 import {Account} from "web3-core";
+import { JsonRpcResponse } from "web3-core-helpers";
 
 import * as RLP from "rlp";
 import * as web3Utils from "web3-utils";
@@ -11,7 +12,7 @@ export const STORAGE_SLOT = "0";
 
 export let web3: Web3;
 export let gerald: Account & {storageKey: string};
-	
+
 export const contractAddress = (makerAddress: string, nonce: number) => {
 	if (!web3) {
 		throw new Error("Must run web3.init() first");
@@ -25,7 +26,7 @@ export const contractAddress = (makerAddress: string, nonce: number) => {
 	);
 };
 
-	
+
 export const importAccount = (privateKey: string) => {
 	if (!web3) {
 		throw new Error("Must run web3.init() first");
@@ -36,6 +37,29 @@ export const importAccount = (privateKey: string) => {
 	const storageKey = web3Utils.sha3("0x".concat(mapKey.concat(mapStorageSlot)));
 	return { ...account, storageKey };
 };
+
+export async function customRequest(web3: Web3, method: string, params: any[]) {
+	return new Promise<JsonRpcResponse>((resolve, reject) => {
+		(web3.currentProvider as any).send(
+			{
+				jsonrpc: "2.0",
+				id: 1,
+				method,
+				params,
+			},
+			(error: Error | null, result?: JsonRpcResponse) => {
+				if (error) {
+					reject(
+						`Failed to send custom request (${method} (${params.join(",")})): ${
+							error.message || error.toString()
+						}`
+					);
+				}
+				resolve(result);
+			}
+		);
+	});
+}
 
 export const init = (url = "http://localhost:9933") => {
 	web3 = new Web3(url);

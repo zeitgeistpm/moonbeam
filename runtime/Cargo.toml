@@ -20,6 +20,7 @@ rand = { version = "0.7.3", optional = true, features = ["small_rng"] }
 regex = { version = "1.3.1", optional = true }
 base58 = { version = "0.1.0", optional = true }
 log = "0.4.8"
+sha3 = { version = "0.8", default-features = false }
 
 
 ed25519-dalek = { version = "1.0.0-pre.3", default-features = false, features = ["u64_backend", "alloc"], optional = true }
@@ -99,6 +100,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"frontier-rpc-primitives/std",
+	"sha3/std",
 
 	"lazy_static",
 	"parking_lot",

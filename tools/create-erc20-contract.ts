@@ -7,7 +7,7 @@ const main = async () => {
 		{
 			data: ERC20_BYTECODE,
 			value: "0x00",
-			gasPrice: "0x00",
+			gasPrice: "0x01",
 			gas: "0x100000",
 		});
 	console.log("Transaction", {

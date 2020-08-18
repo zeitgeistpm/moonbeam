@@ -24,11 +24,7 @@ use sp_std::hash::Hash;
 use sp_std::vec::Vec;
 use sp_std::str;
 use sp_std::convert::TryFrom;
-#[cfg(feature = "std")]
-use rand::{RngCore, rngs::OsRng};
 use codec::{Encode, Decode};
-#[cfg(feature = "std")]
-use regex::Regex;
 #[cfg(feature = "std")]
 use sp_core::hexdisplay::HexDisplay;
 use zeroize::Zeroize;
@@ -252,7 +248,7 @@ pub trait Derive: Sized {
 
 /// Trait suitable for typical cryptographic PKI key public type.
 pub trait Public:
-	AsRef<[u8]> + AsMut<[u8]> + Default + Derive + CryptoType + PartialEq + Eq + Clone + Send + Sync
+	AsRef<[u8]> + AsMut<[u8]> + Default + Derive + PartialEq + Eq + Clone + Send + Sync
 {
 	/// A new instance from the given slice.
 	///
@@ -292,7 +288,7 @@ impl sp_std::str::FromStr for AccountId20 {
 	type Err = PublicError;
 	fn from_str(s: &str) -> Result<Self, PublicError> {
 		let hex_without_prefix = s.trim_start_matches("0x");
-		if hex_without_prefix.len() == 20 {
+		if hex_without_prefix.len() == 40 {
 			let mut bytes = [0u8; 20];
 			hex::decode_to_slice(hex_without_prefix, &mut bytes)
 				.map_err(|_| PublicError::InvalidFormat)
@@ -359,32 +355,19 @@ impl From<AccountId20> for [u8; 20] {
 	}
 }
 
-/// Identity address mapping.
+/// Identity address mapping, required for EVM address mapping
 pub struct IdentityAddressMapping;
 
 impl AddressMapping<AccountId20> for IdentityAddressMapping {
-	fn into_account_id(address: H160) -> AccountId20 { address.to_fixed_bytes().into() }
+	fn into_account_id(address: H160) -> AccountId20 {
+		address.to_fixed_bytes().into()
+	}
 }
-
-// fn convert_account_id(account_id: &A) -> H160 {
-// 	let account_id = H::hash(account_id.as_ref());
-// 	let account_id_len = account_id.as_ref().len();
-// 	let mut value = [0u8; 20];
-// 	let value_len = value.len();
-
-// 	if value_len > account_id_len {
-// 		value[(value_len - account_id_len)..].copy_from_slice(account_id.as_ref());
-// 	} else {
-// 		value.copy_from_slice(&account_id.as_ref()[(account_id_len - value_len)..]);
-// 	}
-
-// 	H160::from(value)
-// }
 
 #[cfg(feature = "std")]
 impl std::fmt::Display for AccountId20 {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}", self)
+		H160::fmt(&H160::from_slice(&self.0), f)
 	}
 }
 
@@ -410,159 +393,9 @@ impl serde::Serialize for AccountId20 {
 #[cfg(feature = "std")]
 impl<'de> serde::Deserialize<'de> for AccountId20 {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
-		log::trace!(target:"evm", "deserialize");
 		AccountId20::from_str(&String::deserialize(deserializer)?)
 			.map_err(|e| serde::de::Error::custom(format!("{:?}", e)))
 	}
-}
-
-/// Trait suitable for typical cryptographic PKI key pair type.
-///
-/// For now it just specifies how to create a key from a phrase and derivation path.
-#[cfg(feature = "full_crypto")]
-pub trait Pair: CryptoType + Sized + Clone + Send + Sync + 'static {
-	/// The type which is used to encode a public key.
-	type Public: Public + Hash;
-
-	/// The type used to (minimally) encode the data required to securely create
-	/// a new key pair.
-	type Seed: Default + AsRef<[u8]> + AsMut<[u8]> + Clone;
-
-	/// The type used to represent a signature. Can be created from a key pair and a message
-	/// and verified with the message and a public key.
-	type Signature: AsRef<[u8]>;
-
-	/// Error returned from the `derive` function.
-	type DeriveError;
-
-	/// Generate new secure (random) key pair.
-	///
-	/// This is only for ephemeral keys really, since you won't have access to the secret key
-	/// for storage. If you want a persistent key pair, use `generate_with_phrase` instead.
-	#[cfg(feature = "std")]
-	fn generate() -> (Self, Self::Seed) {
-		let mut seed = Self::Seed::default();
-		OsRng.fill_bytes(seed.as_mut());
-		(Self::from_seed(&seed), seed)
-	}
-
-	/// Generate new secure (random) key pair and provide the recovery phrase.
-	///
-	/// You can recover the same key later with `from_phrase`.
-	///
-	/// This is generally slower than `generate()`, so prefer that unless you need to persist
-	/// the key from the current session.
-	#[cfg(feature = "std")]
-	fn generate_with_phrase(password: Option<&str>) -> (Self, String, Self::Seed);
-
-	/// Returns the KeyPair from the English BIP39 seed `phrase`, or `None` if it's invalid.
-	#[cfg(feature = "std")]
-	fn from_phrase(phrase: &str, password: Option<&str>) -> Result<(Self, Self::Seed), SecretStringError>;
-
-	/// Derive a child key from a series of given junctions.
-	fn derive<Iter: Iterator<Item=DeriveJunction>>(&self,
-		path: Iter,
-		seed: Option<Self::Seed>,
-	) -> Result<(Self, Option<Self::Seed>), Self::DeriveError>;
-
-	/// Generate new key pair from the provided `seed`.
-	///
-	/// @WARNING: THIS WILL ONLY BE SECURE IF THE `seed` IS SECURE. If it can be guessed
-	/// by an attacker then they can also derive your key.
-	fn from_seed(seed: &Self::Seed) -> Self;
-
-	/// Make a new key pair from secret seed material. The slice must be the correct size or
-	/// it will return `None`.
-	///
-	/// @WARNING: THIS WILL ONLY BE SECURE IF THE `seed` IS SECURE. If it can be guessed
-	/// by an attacker then they can also derive your key.
-	fn from_seed_slice(seed: &[u8]) -> Result<Self, SecretStringError>;
-
-	/// Sign a message.
-	fn sign(&self, message: &[u8]) -> Self::Signature;
-
-	/// Verify a signature on a message. Returns true if the signature is good.
-	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, pubkey: &Self::Public) -> bool;
-
-	/// Verify a signature on a message. Returns true if the signature is good.
-	fn verify_weak<P: AsRef<[u8]>, M: AsRef<[u8]>>(sig: &[u8], message: M, pubkey: P) -> bool;
-
-	/// Get the public key.
-	fn public(&self) -> Self::Public;
-
-	/// Interprets the string `s` in order to generate a key Pair. Returns both the pair and an optional seed, in the
-	/// case that the pair can be expressed as a direct derivation from a seed (some cases, such as Sr25519 derivations
-	/// with path components, cannot).
-	///
-	/// This takes a helper function to do the key generation from a phrase, password and
-	/// junction iterator.
-	///
-	/// - If `s` is a possibly `0x` prefixed 64-digit hex string, then it will be interpreted
-	/// directly as a `MiniSecretKey` (aka "seed" in `subkey`).
-	/// - If `s` is a valid BIP-39 key phrase of 12, 15, 18, 21 or 24 words, then the key will
-	/// be derived from it. In this case:
-	///   - the phrase may be followed by one or more items delimited by `/` characters.
-	///   - the path may be followed by `///`, in which case everything after the `///` is treated
-	/// as a password.
-	/// - If `s` begins with a `/` character it is prefixed with the Substrate public `DEV_PHRASE` and
-	/// interpreted as above.
-	///
-	/// In this case they are interpreted as HDKD junctions; purely numeric items are interpreted as
-	/// integers, non-numeric items as strings. Junctions prefixed with `/` are interpreted as soft
-	/// junctions, and with `//` as hard junctions.
-	///
-	/// There is no correspondence mapping between SURI strings and the keys they represent.
-	/// Two different non-identical strings can actually lead to the same secret being derived.
-	/// Notably, integer junction indices may be legally prefixed with arbitrary number of zeros.
-	/// Similarly an empty password (ending the SURI with `///`) is perfectly valid and will generally
-	/// be equivalent to no password at all.
-	///
-	/// `None` is returned if no matches are found.
-	#[cfg(feature = "std")]
-	fn from_string_with_seed(s: &str, password_override: Option<&str>)
-		-> Result<(Self, Option<Self::Seed>), SecretStringError>
-	{
-		let re = Regex::new(r"^(?P<phrase>[\d\w ]+)?(?P<path>(//?[^/]+)*)(///(?P<password>.*))?$")
-			.expect("constructed from known-good static value; qed");
-		let cap = re.captures(s).ok_or(SecretStringError::InvalidFormat)?;
-
-		let re_junction = Regex::new(r"/(/?[^/]+)")
-			.expect("constructed from known-good static value; qed");
-		let path = re_junction.captures_iter(&cap["path"])
-			.map(|f| DeriveJunction::from(&f[1]));
-
-		let phrase = cap.name("phrase").map(|r| r.as_str()).unwrap_or(DEV_PHRASE);
-		let password = password_override.or_else(|| cap.name("password").map(|m| m.as_str()));
-
-		let (root, seed) = if phrase.starts_with("0x") {
-			hex::decode(&phrase[2..]).ok()
-				.and_then(|seed_vec| {
-					let mut seed = Self::Seed::default();
-					if seed.as_ref().len() == seed_vec.len() {
-						seed.as_mut().copy_from_slice(&seed_vec);
-						Some((Self::from_seed(&seed), seed))
-					} else {
-						None
-					}
-				})
-				.ok_or(SecretStringError::InvalidSeed)?
-		} else {
-			Self::from_phrase(phrase, password)
-				.map_err(|_| SecretStringError::InvalidPhrase)?
-		};
-		root.derive(path, Some(seed)).map_err(|_| SecretStringError::InvalidPath)
-	}
-
-	/// Interprets the string `s` in order to generate a key pair.
-	///
-	/// See [`from_string_with_seed`](Pair::from_string_with_seed) for more extensive documentation.
-	#[cfg(feature = "std")]
-	fn from_string(s: &str, password_override: Option<&str>) -> Result<Self, SecretStringError> {
-		Self::from_string_with_seed(s, password_override).map(|x| x.0)
-	}
-
-	/// Return a vec filled with raw data.
-	fn to_raw_vec(&self) -> Vec<u8>;
 }
 
 /// One type is wrapped by another.
@@ -598,13 +431,6 @@ impl<Inner, Outer, T> UncheckedFrom<T> for Outer where
 		let inner: Inner = t.unchecked_into();
 		inner.into()
 	}
-}
-
-/// Type which has a particular kind of crypto associated with it.
-pub trait CryptoType {
-	/// The pair key type of this crypto.
-	#[cfg(feature = "full_crypto")]
-	type Pair: Pair;
 }
 
 /// An identifier for a type of cryptographic key.

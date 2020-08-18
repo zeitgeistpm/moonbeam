@@ -1,13 +1,16 @@
-import { importAccount, web3, gerald, contractAddress } from "./init-web3";
+import { init, web3, gerald, contractAddress } from "./init-web3";
 
+
+init()
 
 const main = async () => {
 	const nonce = await web3.eth.getTransactionCount(gerald.address);
+	const balance = await web3.eth.getBalance(gerald.address, "0");
 
 	const chainId = await web3.eth.net.getId();
 	// Step 1: Creating the contract.
 	console.log(`Using chain id: ${chainId}\n`);
-	console.log(`Gerald account: ${gerald.address} (nonce: ${nonce})`);
+	console.log(`Gerald account: ${gerald.address} (nonce: ${nonce}, balance: ${balance}))`);
 
 	const contractAdd = contractAddress(gerald.address, 0);
 	const code = await web3.eth.getCode(contractAdd);
