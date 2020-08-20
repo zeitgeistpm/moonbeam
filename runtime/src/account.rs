@@ -336,6 +336,12 @@ impl From<[u8; 20]> for AccountId20 {
 	}
 }
 
+impl From<H160> for AccountId20 {
+	fn from(x: H160) -> AccountId20 {
+		AccountId20(x.0)
+	}
+}
+
 impl<'a> sp_std::convert::TryFrom<&'a [u8]> for AccountId20 {
 	type Error = ();
 	fn try_from(x: &'a [u8]) -> Result<AccountId20, ()> {
