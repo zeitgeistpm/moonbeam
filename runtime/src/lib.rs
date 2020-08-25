@@ -54,7 +54,7 @@ pub mod signer;
 pub type BlockNumber = constants::time::BlockNumber;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = signer::EthereumSignature;
+pub type Signature = signer::MultiSignature;
 
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
