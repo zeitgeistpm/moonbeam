@@ -14,7 +14,7 @@ async function main() {
 		provider: new WsProvider("ws://127.0.0.1:9944"),
 		types: {
 			Balance: "u128",
-			AccountId: "H160",
+			AccountId: "EthereumAccountId",
 			Address: "AccountId",
 			LookupSource: "AccountId",
 			Account: {

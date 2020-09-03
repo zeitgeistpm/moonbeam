@@ -52,6 +52,7 @@ sha3 = { version = "0.8", default-features = false }
 moonbeam-runtime = { path = "../runtime" }
 frontier-rpc = { version = "0.1.0", path = "../vendor/frontier/rpc" }
 frontier-rpc-primitives = { version = "0.1.0", path = "../vendor/frontier/rpc/primitives" }
+frontier-consensus = { version = "0.1.0", path = "../vendor/frontier/consensus" }
 
 libsecp256k1 = { version = "0.3.5", features = ["hmac"] }
 

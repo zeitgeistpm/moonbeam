@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use sc_client_api::{ExecutorProvider, RemoteBackend};
 use sc_consensus_manual_seal::{self as manual_seal};
+use frontier_consensus::FrontierBlockImport;
 use moonbeam_runtime::{self, opaque::Block, RuntimeApi};
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sp_inherents::InherentDataProviders;
@@ -26,8 +27,17 @@ type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
 pub enum ConsensusResult {
-	GrandPa((
-		sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
+	Aura((
+		sc_consensus_aura::AuraBlockImport<
+			Block,
+			FullClient,
+			FrontierBlockImport<
+				Block,
+				sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
+				FullClient
+			>,
+			AuraPair
+		>,
 		sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>
 	)),
 	ManualSeal
@@ -77,25 +87,33 @@ pub fn new_partial(config: &Configuration, manual_seal: bool) -> Result<
 		client.clone(), &(client.clone() as Arc<_>), select_chain.clone(),
 	)?;
 
-	let aura_block_import = sc_consensus_aura::AuraBlockImport::<_, _, _, AuraPair>::new(
-		grandpa_block_import.clone(), client.clone(),
+	let frontier_block_import = FrontierBlockImport::new(
+		grandpa_block_import.clone(),
+		client.clone()
 	);
 
-	let import_queue = sc_consensus_aura::import_queue::<_, _, _, AuraPair, _>(
+	let aura_block_import = sc_consensus_aura::AuraBlockImport::<_, _, _, AuraPair>::new(
+		frontier_block_import, client.clone(),
+	);
+
+	log::info!("Using Aura Import queue");
+
+	let import_queue = sc_consensus_aura::import_queue::<_, _, _, AuraPair, _, _>(
 		sc_consensus_aura::slot_duration(&*client)?,
-		aura_block_import,
+		aura_block_import.clone(),
 		Some(Box::new(grandpa_block_import.clone())),
 		None,
 		client.clone(),
 		inherent_data_providers.clone(),
 		&task_manager.spawn_handle(),
 		config.prometheus_registry(),
+		sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
 	)?;
 
 	Ok(sc_service::PartialComponents {
 		client, backend, task_manager, import_queue, keystore, select_chain, transaction_pool,
 		inherent_data_providers,
-		other: ConsensusResult::GrandPa((grandpa_block_import, grandpa_link))
+		other: ConsensusResult::Aura((aura_block_import, grandpa_link))
 	})
 }
 
@@ -121,7 +139,7 @@ pub fn new_full(config: Configuration, manual_seal: bool) -> Result<TaskManager,
 				finality_proof_provider: None,
 			})?
 		},
-		ConsensusResult::GrandPa((_, _)) => {
+		ConsensusResult::Aura((_, _)) => {
 			sc_service::build_network(sc_service::BuildNetworkParams {
 				config: &config,
 				client: client.clone(),
@@ -209,7 +227,7 @@ pub fn new_full(config: Configuration, manual_seal: bool) -> Result<TaskManager,
 			}
 			log::info!("Manual Seal Ready");
 		},
-		ConsensusResult::GrandPa((grandpa_block_import, grandpa_link)) => {
+		ConsensusResult::Aura((aura_block_import, grandpa_link)) => {
 			if role.is_authority() {
 				let proposer = sc_basic_authorship::ProposerFactory::new(
 					client.clone(),
@@ -223,7 +241,7 @@ pub fn new_full(config: Configuration, manual_seal: bool) -> Result<TaskManager,
 					sc_consensus_aura::slot_duration(&*client)?,
 					client.clone(),
 					select_chain,
-					grandpa_block_import,
+					aura_block_import,
 					proposer,
 					network.clone(),
 					inherent_data_providers.clone(),
@@ -314,7 +332,7 @@ pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
 	let finality_proof_request_builder =
 		finality_proof_import.create_finality_proof_request_builder();
 
-	let import_queue = sc_consensus_aura::import_queue::<_, _, _, AuraPair, _>(
+	let import_queue = sc_consensus_aura::import_queue::<_, _, _, AuraPair, _, _>(
 		sc_consensus_aura::slot_duration(&*client)?,
 		grandpa_block_import,
 		None,
@@ -323,6 +341,7 @@ pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
 		InherentDataProviders::new(),
 		&task_manager.spawn_handle(),
 		config.prometheus_registry(),
+		sp_consensus::NeverCanAuthor,
 	)?;
 
 	let light_deps = crate::rpc::LightDeps {
