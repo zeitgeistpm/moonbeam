@@ -80,4 +80,47 @@ describeWithMoonbeam("Moonbeam RPC (Gas)", `simple-specs.json`, (context) => {
 
     expect(await contract.methods.multiply(3).estimateGas()).to.equal(21204);
   });
+
+
+  const SSTORE_CONTRACT_BYTECODE = "0x608060405234801561001057600080fd5b50600160008190555060b4806" +
+    "100276000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063d55dc23c1" +
+    "4602d575b600080fd5b60336049565b6040518082815260200191505060405180910390f35b600080600090505b6" +
+    "00a8110156075576001600080828254019250508190555080806001019150506051565b5060005490509056fea26" +
+    "46970667358221220e572adc4e953f84c45cef4a6870faeea4861a2be11a5ac48e978a35971f5a93564736f6c634" +
+    "30006060033";
+
+  const SSTORE_CONTRACT_ABI = {
+    inputs: [],
+    name: "big_loop",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    payable: false,
+    stateMutability: "nonpayable",
+    type: "function",
+  } as AbiItem;
+
+  it("should include enough gas to pass SStore", async function () {
+    
+    const tx = await context.web3.eth.accounts.signTransaction(
+      {
+        from: GENESIS_ACCOUNT,
+        data: TEST_CONTRACT_BYTECODE,
+        value: "0x00",
+        gasPrice: "0x01",
+        gas: "0x100000",
+      },
+      GENESIS_ACCOUNT_PRIVATE_KEY
+    );
+
+    console.log(`Nonce : ${await context.web3.eth.getTransactionCount(GENESIS_ACCOUNT)}`);
+    await customRequest(context.web3, "eth_sendRawTransaction", [tx.rawTransaction])
+
+    const contract = new context.web3.eth.Contract([SSTORE_CONTRACT_ABI], FIRST_CONTRACT_ADDRESS, {
+      from: GENESIS_ACCOUNT,
+    });
+
+    // The gas used for this call is 43185 but the estimate gas must return 43750
+    // in order the pass the SSTore toll
+    // (see https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1706.md)
+    expect(await contract.methods.big_loop().estimateGas()).to.equal(43750);
+  });
 });
