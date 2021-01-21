@@ -32,6 +32,5 @@ EXPOSE 30333 30334 9933 9944 9615
 
 VOLUME ["/data"]
 
-CMD ["/moonbase-alphanet/moonbase-alphanet", \
-	"--chain", "alphanet"\
-]
+ENTRYPOINT /moonbase-alphanet/moonbase-alphanet
+CMD ["--chain", "alphanet", "--base-path", "/data"]
