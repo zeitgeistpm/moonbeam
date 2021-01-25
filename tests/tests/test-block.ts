@@ -129,24 +129,24 @@ describeWithMoonbeam("Moonbeam RPC (Block)", `simple-specs.json`, (context) => {
 
   it.skip("should be able to fill a block with 260 tx", async function () {
     this.timeout(15000);
-    // We have 6_000_000 Gas available for transactions per block.
-    // Each transaction needs 2_000 (extrinsic cost) + 21_000 (eth cost)
-    // 6_000_000 / 23_000 = ~260.86
-    // The test will send 261 tx and verify the first block contains only 260.
-    let { txPassed, txPassedFirstBlock } = await fillBlockWithTx(context, 261);
-    expect(txPassedFirstBlock).to.eq(260);
-    expect(txPassed).to.eq(261); // including all blocks
+    // We have 12_750_000 Gas available for transactions per block.
+    // Each transaction needs 4_250 (extrinsic cost) + 21_000 (eth cost)
+    // 12_750_000 / 25_250 = ~504.95
+    // The test will send 505 tx and verify the first block contains only 504.
+    let { txPassed, txPassedFirstBlock } = await fillBlockWithTx(context, 505);
+    expect(txPassedFirstBlock).to.eq(504);
+    expect(txPassed).to.eq(505); // including all blocks
   });
 
   it.skip("should be able to fill a block with 64 contract creations tx", async function () {
     this.timeout(15000);
-    // We have 6_000_000 Gas available for transactions per block.
-    // Each transaction needs 2_000 (extrinsic cost) + 91019 (contract cost)
-    // 6_000_000 / 92_019 = ~64.50
+    // We have 12_750_000 Gas available for transactions per block.
+    // Each transaction needs 4_250 (extrinsic cost) + 91019 (contract cost)
+    // 12_750_000 / 95_269 = ~133.83
 
-    // The test will send 65 contract tx and verify the first block contains only 64.
-    let { txPassedFirstBlock } = await fillBlockWithTx(context, 65, contractCreation);
-    expect(txPassedFirstBlock).to.eq(64);
+    // The test will send 134 contract tx and verify the first block contains only 133.
+    let { txPassedFirstBlock } = await fillBlockWithTx(context, 134, contractCreation);
+    expect(txPassedFirstBlock).to.eq(133);
   });
 
   // 8192 is the number of tx that can be sent to the Pool
