@@ -12,13 +12,13 @@ use moonbeam_rpc_primitives_debug::{
 	blockscout::{CallResult, CallType, CreateResult, Entry, EntryInner},
 	StepLog, TraceType,
 };
+use pallet_evm::runner::stack::WeightHook;
 use sp_std::{
 	cmp::min, collections::btree_map::BTreeMap, convert::Infallible, rc::Rc, vec, vec::Vec,
 };
-
-pub struct TraceExecutorWrapper<'config, S> {
+pub struct TraceExecutorWrapper<'config, T: pallet_evm::Config, S> {
 	// Common parts.
-	pub inner: &'config mut StackExecutor<'config, S>,
+	pub inner: &'config mut StackExecutor<'config, S, WeightHook<T>>,
 	is_tracing: bool,
 	trace_type: TraceType,
 
@@ -37,13 +37,17 @@ enum ContextType {
 	Create,
 }
 
-impl<'config, S: StackStateT<'config>> TraceExecutorWrapper<'config, S> {
+impl<'config, T, S> TraceExecutorWrapper<'config, T, S>
+where
+	S: StackStateT<'config>,
+	T: pallet_evm::Config,
+{
 	pub fn new(
-		inner: &'config mut StackExecutor<'config, S>,
+		inner: &'config mut StackExecutor<'config, S, WeightHook<T>>,
 		is_tracing: bool,
 		trace_type: TraceType,
-	) -> TraceExecutorWrapper<'config, S> {
-		TraceExecutorWrapper {
+	) -> Self {
+		Self {
 			inner,
 			is_tracing,
 			trace_type,
@@ -589,7 +593,11 @@ impl<'config, S: StackStateT<'config>> TraceExecutorWrapper<'config, S> {
 	}
 }
 
-impl<'config, S: StackStateT<'config>> HandlerT for TraceExecutorWrapper<'config, S> {
+impl<'config, T, S> HandlerT for TraceExecutorWrapper<'config, T, S>
+where
+	T: pallet_evm::Config,
+	S: StackStateT<'config>,
+{
 	type CreateInterrupt = Infallible;
 	type CreateFeedback = Infallible;
 	type CallInterrupt = Infallible;

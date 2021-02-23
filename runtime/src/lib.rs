@@ -248,7 +248,7 @@ pub const WEIGHT_PER_GAS: u64 = WEIGHT_PER_SECOND / GAS_PER_SECOND;
 pub struct MoonbeamGasWeightMapping;
 
 impl pallet_evm::GasWeightMapping for MoonbeamGasWeightMapping {
-	fn gas_to_weight(gas: u64) -> Weight {
+	fn gas_to_weight(_opcode: Option<u8>, gas: u64) -> Weight {
 		gas.saturating_mul(WEIGHT_PER_GAS)
 	}
 	fn weight_to_gas(weight: Weight) -> u64 {
@@ -770,9 +770,9 @@ impl_runtime_apis! {
 			)
 		}
 
-		fn current_block_gas_limit() -> U256 {
-			<Runtime as pallet_ethereum::Config>::BlockGasLimit::get()
-		}
+		// fn current_block_gas_limit() -> U256 {
+		// 	<Runtime as pallet_ethereum::Config>::BlockGasLimit::get()
+		// }
 	}
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance>

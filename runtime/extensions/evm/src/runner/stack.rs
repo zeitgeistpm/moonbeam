@@ -23,30 +23,34 @@ use evm::{
 // use fp_evm::Vicinity;
 use moonbeam_rpc_primitives_debug::{TraceExecutorResponse, TraceType};
 use pallet_evm::{
-	runner::stack::{Runner, SubstrateStackState},
+	runner::stack::{Runner, SubstrateStackState, WeightHook},
 	Config, ExitError, ExitReason, PrecompileSet, Vicinity,
 };
 use sp_std::{convert::Infallible, vec::Vec};
 
+pub type Executor<'config, 'vicinity, T> =
+	StackExecutor<'config, SubstrateStackState<'vicinity, 'config, T>, WeightHook<T>>;
+
+pub type Wrapper<'config, 'vicinity, T> =
+	TraceExecutorWrapper<'config, T, SubstrateStackState<'vicinity, 'config, T>>;
+
 pub trait TraceRunner<T: Config> {
 	fn execute_call<'config, F>(
-		executor: &'config mut StackExecutor<'config, SubstrateStackState<'_, 'config, T>>,
+		executor: &'config mut Executor<'config, '_, T>,
 		trace_type: TraceType,
 		f: F,
 	) -> Result<TraceExecutorResponse, ExitError>
 	where
-		F: FnOnce(
-			&mut TraceExecutorWrapper<'config, SubstrateStackState<'_, 'config, T>>,
-		) -> Capture<(ExitReason, Vec<u8>), Infallible>;
+		F: FnOnce(&mut Wrapper<'config, '_, T>) -> Capture<(ExitReason, Vec<u8>), Infallible>;
 
 	fn execute_create<'config, F>(
-		executor: &'config mut StackExecutor<'config, SubstrateStackState<'_, 'config, T>>,
+		executor: &'config mut Executor<'config, '_, T>,
 		trace_type: TraceType,
 		f: F,
 	) -> Result<TraceExecutorResponse, ExitError>
 	where
 		F: FnOnce(
-			&mut TraceExecutorWrapper<'config, SubstrateStackState<'_, 'config, T>>,
+			&mut Wrapper<'config, '_, T>,
 		) -> Capture<(ExitReason, Option<H160>, Vec<u8>), Infallible>;
 
 	fn trace_call(
@@ -71,14 +75,12 @@ pub trait TraceRunner<T: Config> {
 
 impl<T: Config> TraceRunner<T> for Runner<T> {
 	fn execute_call<'config, F>(
-		executor: &'config mut StackExecutor<'config, SubstrateStackState<'_, 'config, T>>,
+		executor: &'config mut Executor<'config, '_, T>,
 		trace_type: TraceType,
 		f: F,
 	) -> Result<TraceExecutorResponse, ExitError>
 	where
-		F: FnOnce(
-			&mut TraceExecutorWrapper<'config, SubstrateStackState<'_, 'config, T>>,
-		) -> Capture<(ExitReason, Vec<u8>), Infallible>,
+		F: FnOnce(&mut Wrapper<'config, '_, T>) -> Capture<(ExitReason, Vec<u8>), Infallible>,
 	{
 		let mut wrapper = TraceExecutorWrapper::new(executor, true, trace_type);
 
@@ -104,13 +106,13 @@ impl<T: Config> TraceRunner<T> for Runner<T> {
 	}
 
 	fn execute_create<'config, F>(
-		executor: &'config mut StackExecutor<'config, SubstrateStackState<'_, 'config, T>>,
+		executor: &'config mut Executor<'config, '_, T>,
 		trace_type: TraceType,
 		f: F,
 	) -> Result<TraceExecutorResponse, ExitError>
 	where
 		F: FnOnce(
-			&mut TraceExecutorWrapper<'config, SubstrateStackState<'_, 'config, T>>,
+			&mut Wrapper<'config, '_, T>,
 		) -> Capture<(ExitReason, Option<H160>, Vec<u8>), Infallible>,
 	{
 		let mut wrapper = TraceExecutorWrapper::new(executor, true, trace_type);
