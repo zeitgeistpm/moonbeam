@@ -16,7 +16,7 @@ jobs:
   ####### Check files and formatting #######
 
   check-copyright:
-    runs-on: self-hosted
+    runs-on: [self-hosted, testing]
     steps:
       - name: Checkout
         if: github.event_name == 'pull_request_target'
@@ -46,7 +46,7 @@ jobs:
           fi
 
   check-links:
-    runs-on: self-hosted
+    runs-on: [self-hosted, testing]
     steps:
       - name: Checkout
         if: github.event_name == 'pull_request_target'
@@ -63,7 +63,7 @@ jobs:
 
   check-editorconfig:
     name: "Check editorconfig"
-    runs-on: self-hosted
+    runs-on: [self-hosted, testing]
     steps:
       - name: Checkout
         if: github.event_name == 'pull_request_target'
@@ -86,7 +86,7 @@ jobs:
 
   check-prettier:
     name: "Check with Prettier"
-    runs-on: self-hosted
+    runs-on: [self-hosted, testing]
     steps:
       - name: Checkout
         if: github.event_name == 'pull_request_target'
@@ -103,7 +103,7 @@ jobs:
   ####### Building and Testing binaries #######
 
   build:
-    runs-on: self-hosted
+    runs-on: [self-hosted, testing]
     env:
       CARGO_SCCACHE_VERSION: 0.2.14-alpha.0-parity
     outputs:
@@ -208,7 +208,7 @@ jobs:
           path: build
 
   docker-parachain:
-    runs-on: self-hosted
+    runs-on: [self-hosted, testing]
     needs: ["build", "generate-parachain-specs"]
     if: github.event_name == 'push'
     steps:
@@ -279,7 +279,7 @@ jobs:
             org.opencontainers.image.licenses=${{ github.event.repository.license.spdx_id }}
 
   docker-moonbeam:
-    runs-on: self-hosted
+    runs-on: [self-hosted, testing]
     needs: ["build", "generate-parachain-specs"]
     if: github.event_name == 'push'
     steps:
