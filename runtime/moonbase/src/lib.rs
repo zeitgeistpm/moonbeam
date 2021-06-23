@@ -730,11 +730,11 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
-	pub const KsmLocation: MultiLocation = MultiLocation::X1(Junction::Parent);
-	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
+	pub const DotLocation: MultiLocation = MultiLocation::X1(Junction::Parent);
+	pub const RelayNetwork: NetworkId = NetworkId::Polkadot;
 	pub MoonbeamNetwork: NetworkId = NetworkId::Named("moon".into());
 	pub RelayChainOrigin: Origin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub Ancestry: MultiLocation = Junction::Parachain(ParachainInfo::parachain_id().into()).into();
+	pub Ancestry: MultiLocation = MultiLocation::X1(Junction::Parachain(ParachainInfo::get().into()));
 }
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
@@ -753,7 +753,7 @@ pub type LocalAssetTransactor = xcm_builder::CurrencyAdapter<
 	// Use this currency:
 	BalancesKsm,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	xcm_builder::IsConcrete<KsmLocation>,
+	xcm_builder::IsConcrete<DotLocation>,
 	// Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -830,7 +830,7 @@ impl xcm_executor::Config for XcmExecutorConfig {
 	type Barrier = XcmBarrier;
 	type Weigher = xcm_builder::FixedWeightBounds<UnitWeightCost, Call>;
 	type Trader =
-		xcm_builder::UsingComponents<IdentityFee<Balance>, KsmLocation, AccountId, Balances, ()>;
+		xcm_builder::UsingComponents<IdentityFee<Balance>, DotLocation, AccountId, Balances, ()>;
 	type ResponseHandler = (); // Don't handle responses for now.
 }
 
@@ -864,7 +864,7 @@ where
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
-pub type LocalOriginToLocation = SignedToAccountId20<Origin, AccountId, RelayNetwork>;
+pub type LocalOriginToLocation = SignedToAccountId20<Origin, AccountId, MoonbeamNetwork>;
 
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
