@@ -17,6 +17,9 @@ hex-literal = "0.3.1"
 runtime-common =  { path = "../common", default-features = false }
 
 pallet-author-inherent = { git = "https://github.com/purestake/cumulus", branch = "nimbus-polkadot-v0.9.4", default-features = false }
+
+orml-xtokens = { git = "https://github.com/girazoki/open-runtime-module-library", default-features = false, branch = "orml_0.9.4" }
+
 account = { path = "../../primitives/account/", default-features = false }
 moonbeam-core-primitives = { path = "../../core-primitives", default-features = false }
 pallet-ethereum-chain-id = { path = "../../pallets/ethereum-chain-id", default-features = false }
@@ -169,7 +172,8 @@ std = [
 	"cumulus-pallet-xcm/std",
 	"xcm/std",
 	"xcm-builder/std",
-	"xcm-executor/std"
+	"xcm-executor/std",
+	"orml-xtokens/std",
 ]
 
 # Will be enabled by the `wasm-builder` when building the runtime for WASM.

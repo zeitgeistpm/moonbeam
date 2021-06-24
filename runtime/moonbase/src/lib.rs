@@ -904,6 +904,58 @@ impl cumulus_pallet_dmp_queue::Config for Runtime {
 	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 }
 
+pub struct CurrencyIdConvert;
+impl sp_runtime::traits::Convert<u8, Option<MultiLocation>> for CurrencyIdConvert {
+	fn convert(id: u8) -> Option<MultiLocation> {
+		match id {
+			1u8 => Some(MultiLocation::X1(Junction::Parent)),
+			_ => None,
+		}
+	}
+}
+impl sp_runtime::traits::Convert<MultiLocation, Option<u8>> for CurrencyIdConvert {
+	fn convert(location: MultiLocation) -> Option<u8> {
+		match location {
+			MultiLocation::X1(Junction::Parent) => Some(1u8),
+			_ => None,
+		}
+	}
+}
+impl sp_runtime::traits::Convert<MultiAsset, Option<u8>> for CurrencyIdConvert {
+	fn convert(asset: MultiAsset) -> Option<u8> {
+		if let MultiAsset::ConcreteFungible { id, amount: _ } = asset {
+			Self::convert(id)
+		} else {
+			None
+		}
+	}
+}
+
+pub struct AccountIdToMultiLocation;
+impl sp_runtime::traits::Convert<AccountId, MultiLocation> for AccountIdToMultiLocation {
+	fn convert(account: AccountId) -> MultiLocation {
+		MultiLocation::X1(Junction::AccountKey20 {
+			network: NetworkId::Any,
+			key: account.into(),
+		})
+	}
+}
+
+parameter_types! {
+	pub SelfLocation: MultiLocation = MultiLocation::X2(Junction::Parent, Junction::Parachain(ParachainInfo::get().into()));
+}
+
+impl orml_xtokens::Config for Runtime {
+	type Event = Event;
+	type Balance = Balance;
+	type CurrencyId = u8;
+	type CurrencyIdConvert = CurrencyIdConvert;
+	type AccountIdToMultiLocation = AccountIdToMultiLocation;
+	type SelfLocation = SelfLocation;
+	type XcmExecutor = XcmExecutor;
+	type Weigher = xcm_builder::FixedWeightBounds<UnitWeightCost, Call>;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -962,6 +1014,7 @@ construct_runtime! {
 		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin} = 101,
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 102,
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 103,
+		XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 104,
 	}
 }
 
