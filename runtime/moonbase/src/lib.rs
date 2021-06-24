@@ -796,25 +796,10 @@ match_type! {
 	};
 }
 
-pub struct allAllowed;
-impl xcm_executor::traits::ShouldExecute for allAllowed {
-	fn should_execute<Call>(
-		origin: &MultiLocation,
-		_top_level: bool,
-		_message: &Xcm<Call>,
-		_shallow_weight: Weight,
-		_weight_credit: &mut Weight,
-	) -> Result<(), ()> {
-		Ok(())
-	}
-}
-
 pub type XcmBarrier = (
 	xcm_builder::TakeWeightCredit,
 	xcm_builder::AllowTopLevelPaidExecutionFrom<All<MultiLocation>>,
 	xcm_builder::AllowUnpaidExecutionFrom<ParentOrParentsExecutivePlurality>,
-	// ^^^ Parent and its exec plurality get free execution
-	allAllowed,
 );
 
 pub struct XcmExecutorConfig;
