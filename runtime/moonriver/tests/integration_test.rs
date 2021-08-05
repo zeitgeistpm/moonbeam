@@ -132,14 +132,6 @@ fn verify_pallet_prefixes() {
 		]
 	);
 	assert_eq!(
-		<moonriver_runtime::Sudo as StorageInfoTrait>::storage_info(),
-		vec![StorageInfo {
-			prefix: prefix(b"Sudo", b"Key"),
-			max_values: Some(1),
-			max_size: Some(20),
-		}]
-	);
-	assert_eq!(
 		<moonriver_runtime::Proxy as StorageInfoTrait>::storage_info(),
 		vec![
 			StorageInfo {
@@ -181,8 +173,7 @@ fn verify_pallet_indices() {
 	// Handy utilities
 	is_pallet_index::<moonriver_runtime::Utility>(30);
 	is_pallet_index::<moonriver_runtime::Proxy>(31);
-	// Sudo
-	is_pallet_index::<moonriver_runtime::Sudo>(40);
+	// Sudo was previously index 40
 	// Ethereum compatibility
 	is_pallet_index::<moonriver_runtime::EthereumChainId>(50);
 	is_pallet_index::<moonriver_runtime::EVM>(51);
@@ -538,6 +529,390 @@ fn initialize_crowdloan_addresses_with_batch_and_pay() {
 				pallet_crowdloan_rewards::Error::<Runtime>::NoAssociatedClaim
 			);
 		});
+}
+
+#[ignore]
+#[test]
+fn claim_via_precompile() {
+	ExtBuilder::default()
+		.with_balances(vec![
+			(AccountId::from(ALICE), 2_000 * MOVR),
+			(AccountId::from(BOB), 1_000 * MOVR),
+		])
+		.with_collators(vec![(AccountId::from(ALICE), 1_000 * MOVR)])
+		.with_mappings(vec![(
+			NimbusId::from_slice(&ALICE_NIMBUS),
+			AccountId::from(ALICE),
+		)])
+		.with_crowdloan_fund(3_000_000 * MOVR)
+		.build()
+		.execute_with(|| {
+			// set parachain inherent data
+			set_parachain_inherent_data();
+			set_author(NimbusId::from_slice(&ALICE_NIMBUS));
+			for x in 1..3 {
+				run_to_block(x);
+			}
+			let init_block = CrowdloanRewards::init_relay_block();
+			// This matches the previous vesting
+			let end_block = init_block + 4 * WEEKS;
+			// Batch calls always succeed. We just need to check the inner event
+			assert_ok!(
+				Call::Utility(pallet_utility::Call::<Runtime>::batch_all(vec![
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::initialize_reward_vec(vec![(
+							[4u8; 32].into(),
+							Some(AccountId::from(CHARLIE)),
+							1_500_000 * MOVR
+						)])
+					),
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::initialize_reward_vec(vec![(
+							[5u8; 32].into(),
+							Some(AccountId::from(DAVE)),
+							1_500_000 * MOVR
+						)])
+					),
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::complete_initialization(
+							end_block
+						)
+					)
+				]))
+				.dispatch(root_origin())
+			);
+
+			assert!(CrowdloanRewards::initialized());
+
+			run_to_block(4);
+			// 30 percent initial payout
+			assert_eq!(Balances::balance(&AccountId::from(CHARLIE)), 450_000 * MOVR);
+			// 30 percent initial payout
+			assert_eq!(Balances::balance(&AccountId::from(DAVE)), 450_000 * MOVR);
+
+			let crowdloan_precompile_address = H160::from_low_u64_be(2049);
+
+			// Alice uses the staking precompile to go offline
+			let gas_limit = 100000u64;
+			let gas_price: U256 = 1_000_000_000.into();
+
+			// Construct the call data (selector, amount)
+			let mut call_data = Vec::<u8>::from([0u8; 4]);
+			call_data[0..4].copy_from_slice(&Keccak256::digest(b"claim()")[0..4]);
+
+			assert_ok!(Call::EVM(pallet_evm::Call::<Runtime>::call(
+				AccountId::from(CHARLIE),
+				crowdloan_precompile_address,
+				call_data,
+				U256::zero(), // No value sent in EVM
+				gas_limit,
+				gas_price,
+				None, // Use the next nonce
+			))
+			.dispatch(<Runtime as frame_system::Config>::Origin::root()));
+
+			let vesting_period = 4 * WEEKS as u128;
+			let per_block = (1_050_000 * MOVR) / vesting_period;
+
+			assert_eq!(
+				CrowdloanRewards::accounts_payable(&AccountId::from(CHARLIE))
+					.unwrap()
+					.claimed_reward,
+				(450_000 * MOVR) + per_block
+			);
+		})
+}
+
+#[test]
+fn is_contributor_via_precompile() {
+	ExtBuilder::default()
+		.with_balances(vec![
+			(AccountId::from(ALICE), 2_000 * MOVR),
+			(AccountId::from(BOB), 1_000 * MOVR),
+		])
+		.with_collators(vec![(AccountId::from(ALICE), 1_000 * MOVR)])
+		.with_mappings(vec![(
+			NimbusId::from_slice(&ALICE_NIMBUS),
+			AccountId::from(ALICE),
+		)])
+		.with_crowdloan_fund(3_000_000 * MOVR)
+		.build()
+		.execute_with(|| {
+			// set parachain inherent data
+			set_parachain_inherent_data();
+			set_author(NimbusId::from_slice(&ALICE_NIMBUS));
+			for x in 1..3 {
+				run_to_block(x);
+			}
+			let init_block = CrowdloanRewards::init_relay_block();
+			// This matches the previous vesting
+			let end_block = init_block + 4 * WEEKS;
+			// Batch calls always succeed. We just need to check the inner event
+			assert_ok!(
+				Call::Utility(pallet_utility::Call::<Runtime>::batch_all(vec![
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::initialize_reward_vec(vec![(
+							[4u8; 32].into(),
+							Some(AccountId::from(CHARLIE)),
+							1_500_000 * MOVR
+						)])
+					),
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::initialize_reward_vec(vec![(
+							[5u8; 32].into(),
+							Some(AccountId::from(DAVE)),
+							1_500_000 * MOVR
+						)])
+					),
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::complete_initialization(
+							end_block
+						)
+					)
+				]))
+				.dispatch(root_origin())
+			);
+
+			let crowdloan_precompile_address = H160::from_low_u64_be(2049);
+
+			// Construct the input data to check if Bob is a contributor
+			let mut bob_input_data = Vec::<u8>::from([0u8; 36]);
+			bob_input_data[0..4]
+				.copy_from_slice(&Keccak256::digest(b"is_contributor(address)")[0..4]);
+			bob_input_data[16..36].copy_from_slice(&BOB);
+
+			// Expected result is an EVM boolean false which is 256 bits long.
+			let mut expected_bytes = Vec::from([0u8; 32]);
+			expected_bytes[31] = 0;
+			let expected_false_result = Some(Ok(PrecompileOutput {
+				exit_status: ExitSucceed::Returned,
+				output: expected_bytes,
+				cost: 1000,
+				logs: Default::default(),
+			}));
+
+			// Assert precompile reports Bob is not a contributor
+			assert_eq!(
+				Precompiles::execute(
+					crowdloan_precompile_address,
+					&bob_input_data,
+					None, // target_gas is not necessary right now because consumed none now
+					&Context {
+						// This context copied from Sacrifice tests, it's not great.
+						address: Default::default(),
+						caller: Default::default(),
+						apparent_value: From::from(0),
+					}
+				),
+				expected_false_result
+			);
+
+			// Construct the input data to check if Charlie is a contributor
+			let mut charlie_input_data = Vec::<u8>::from([0u8; 36]);
+			charlie_input_data[0..4]
+				.copy_from_slice(&Keccak256::digest(b"is_contributor(address)")[0..4]);
+			charlie_input_data[16..36].copy_from_slice(&CHARLIE);
+
+			// Expected result is an EVM boolean true which is 256 bits long.
+			let mut expected_bytes = Vec::from([0u8; 32]);
+			expected_bytes[31] = 1;
+			let expected_true_result = Some(Ok(PrecompileOutput {
+				exit_status: ExitSucceed::Returned,
+				output: expected_bytes,
+				cost: 1000,
+				logs: Default::default(),
+			}));
+
+			// Assert precompile reports Bob is a nominator
+			assert_eq!(
+				Precompiles::execute(
+					crowdloan_precompile_address,
+					&charlie_input_data,
+					None, // target_gas is not necessary right now because consumed none now
+					&Context {
+						// This context copied from Sacrifice tests, it's not great.
+						address: Default::default(),
+						caller: Default::default(),
+						apparent_value: From::from(0),
+					}
+				),
+				expected_true_result
+			);
+		})
+}
+
+#[test]
+fn reward_info_via_precompile() {
+	ExtBuilder::default()
+		.with_balances(vec![
+			(AccountId::from(ALICE), 2_000 * MOVR),
+			(AccountId::from(BOB), 1_000 * MOVR),
+		])
+		.with_collators(vec![(AccountId::from(ALICE), 1_000 * MOVR)])
+		.with_mappings(vec![(
+			NimbusId::from_slice(&ALICE_NIMBUS),
+			AccountId::from(ALICE),
+		)])
+		.with_crowdloan_fund(3_000_000 * MOVR)
+		.build()
+		.execute_with(|| {
+			// set parachain inherent data
+			set_parachain_inherent_data();
+			set_author(NimbusId::from_slice(&ALICE_NIMBUS));
+			for x in 1..3 {
+				run_to_block(x);
+			}
+			let init_block = CrowdloanRewards::init_relay_block();
+			// This matches the previous vesting
+			let end_block = init_block + 4 * WEEKS;
+			// Batch calls always succeed. We just need to check the inner event
+			assert_ok!(
+				Call::Utility(pallet_utility::Call::<Runtime>::batch_all(vec![
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::initialize_reward_vec(vec![(
+							[4u8; 32].into(),
+							Some(AccountId::from(CHARLIE)),
+							1_500_000 * MOVR
+						)])
+					),
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::initialize_reward_vec(vec![(
+							[5u8; 32].into(),
+							Some(AccountId::from(DAVE)),
+							1_500_000 * MOVR
+						)])
+					),
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::complete_initialization(
+							end_block
+						)
+					)
+				]))
+				.dispatch(root_origin())
+			);
+
+			let crowdloan_precompile_address = H160::from_low_u64_be(2049);
+
+			// Construct the input data to check if Bob is a contributor
+			let mut charlie_input_data = Vec::<u8>::from([0u8; 36]);
+			charlie_input_data[0..4]
+				.copy_from_slice(&Keccak256::digest(b"reward_info(address)")[0..4]);
+			charlie_input_data[16..36].copy_from_slice(&CHARLIE);
+
+			let expected_total: U256 = (1_500_000 * MOVR).into();
+			let expected_claimed: U256 = (450_000 * MOVR).into();
+
+			// Expected result is two EVM u256 false which are 256 bits long.
+			let mut expected_bytes = Vec::from([0u8; 64]);
+			expected_total.to_big_endian(&mut expected_bytes[0..32]);
+			expected_claimed.to_big_endian(&mut expected_bytes[32..64]);
+			let expected_result = Some(Ok(PrecompileOutput {
+				exit_status: ExitSucceed::Returned,
+				output: expected_bytes,
+				cost: 1000,
+				logs: Default::default(),
+			}));
+
+			// Assert precompile reports Bob is not a contributor
+			assert_eq!(
+				Precompiles::execute(
+					crowdloan_precompile_address,
+					&charlie_input_data,
+					None, // target_gas is not necessary right now because consumed none now
+					&Context {
+						// This context copied from Sacrifice tests, it's not great.
+						address: Default::default(),
+						caller: Default::default(),
+						apparent_value: From::from(0),
+					},
+				),
+				expected_result
+			);
+		})
+}
+
+#[ignore]
+#[test]
+fn update_reward_address_via_precompile() {
+	ExtBuilder::default()
+		.with_balances(vec![
+			(AccountId::from(ALICE), 2_000 * MOVR),
+			(AccountId::from(BOB), 1_000 * MOVR),
+		])
+		.with_collators(vec![(AccountId::from(ALICE), 1_000 * MOVR)])
+		.with_mappings(vec![(
+			NimbusId::from_slice(&ALICE_NIMBUS),
+			AccountId::from(ALICE),
+		)])
+		.with_crowdloan_fund(3_000_000 * MOVR)
+		.build()
+		.execute_with(|| {
+			// set parachain inherent data
+			set_parachain_inherent_data();
+			set_author(NimbusId::from_slice(&ALICE_NIMBUS));
+			for x in 1..3 {
+				run_to_block(x);
+			}
+			let init_block = CrowdloanRewards::init_relay_block();
+			// This matches the previous vesting
+			let end_block = init_block + 4 * WEEKS;
+			// Batch calls always succeed. We just need to check the inner event
+			assert_ok!(
+				Call::Utility(pallet_utility::Call::<Runtime>::batch_all(vec![
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::initialize_reward_vec(vec![(
+							[4u8; 32].into(),
+							Some(AccountId::from(CHARLIE)),
+							1_500_000 * MOVR
+						)])
+					),
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::initialize_reward_vec(vec![(
+							[5u8; 32].into(),
+							Some(AccountId::from(DAVE)),
+							1_500_000 * MOVR
+						)])
+					),
+					Call::CrowdloanRewards(
+						pallet_crowdloan_rewards::Call::<Runtime>::complete_initialization(
+							end_block
+						)
+					)
+				]))
+				.dispatch(root_origin())
+			);
+
+			let crowdloan_precompile_address = H160::from_low_u64_be(2049);
+
+			// Charlie uses the crowdloan precompile to update address through the EVM
+			let gas_limit = 100000u64;
+			let gas_price: U256 = 1_000_000_000.into();
+
+			// Construct the input data to check if Bob is a contributor
+			let mut call_data = Vec::<u8>::from([0u8; 36]);
+			call_data[0..4]
+				.copy_from_slice(&Keccak256::digest(b"update_reward_address(address)")[0..4]);
+			call_data[16..36].copy_from_slice(&ALICE);
+
+			assert_ok!(Call::EVM(pallet_evm::Call::<Runtime>::call(
+				AccountId::from(CHARLIE),
+				crowdloan_precompile_address,
+				call_data,
+				U256::zero(), // No value sent in EVM
+				gas_limit,
+				gas_price,
+				None, // Use the next nonce
+			))
+			.dispatch(<Runtime as frame_system::Config>::Origin::root()));
+
+			assert!(CrowdloanRewards::accounts_payable(&AccountId::from(CHARLIE)).is_none());
+			assert_eq!(
+				CrowdloanRewards::accounts_payable(&AccountId::from(ALICE))
+					.unwrap()
+					.claimed_reward,
+				(450_000 * MOVR)
+			);
+		})
 }
 
 #[test]
@@ -944,7 +1319,7 @@ fn leave_nominators_via_precompile() {
 			let mut call_data = Vec::<u8>::from([0u8; 36]);
 			call_data[0..4].copy_from_slice(&Keccak256::digest(b"leave_nominators(uint256)")[0..4]);
 			nomination_count.to_big_endian(&mut call_data[4..]);
-
+			run_to_block(1);
 			assert_ok!(Call::EVM(pallet_evm::Call::<Runtime>::call(
 				AccountId::from(CHARLIE),
 				staking_precompile_address,
@@ -955,48 +1330,9 @@ fn leave_nominators_via_precompile() {
 				None, // Use the next nonce
 			))
 			.dispatch(<Runtime as frame_system::Config>::Origin::root()));
-
+			run_to_block(600);
 			// Charlie is no longer a nominator
 			assert!(!ParachainStaking::is_nominator(&AccountId::from(CHARLIE)));
-
-			// Check for the right events.
-			let expected_events = vec![
-				Event::Balances(pallet_balances::Event::Unreserved(
-					AccountId::from(CHARLIE),
-					500 * MOVR,
-				)),
-				Event::ParachainStaking(parachain_staking::Event::NominatorLeftCollator(
-					AccountId::from(CHARLIE),
-					AccountId::from(ALICE),
-					500 * MOVR,
-					1_000 * MOVR,
-				)),
-				Event::Balances(pallet_balances::Event::Unreserved(
-					AccountId::from(CHARLIE),
-					500 * MOVR,
-				)),
-				Event::ParachainStaking(parachain_staking::Event::NominatorLeftCollator(
-					AccountId::from(CHARLIE),
-					AccountId::from(BOB),
-					500 * MOVR,
-					1_000 * MOVR,
-				)),
-				Event::ParachainStaking(parachain_staking::Event::NominatorLeft(
-					AccountId::from(CHARLIE),
-					1_000 * MOVR,
-				)),
-				Event::EVM(pallet_evm::Event::<Runtime>::Executed(
-					staking_precompile_address,
-				)),
-			];
-
-			assert_eq!(
-				System::events()
-					.into_iter()
-					.map(|e| e.event)
-					.collect::<Vec<_>>(),
-				expected_events
-			);
 		});
 }
 
@@ -1031,7 +1367,7 @@ fn revoke_nomination_via_precompile() {
 			call_data[0..4]
 				.copy_from_slice(&Keccak256::digest(b"revoke_nomination(address)")[0..4]);
 			call_data[16..36].copy_from_slice(&ALICE);
-
+			run_to_block(1);
 			assert_ok!(Call::EVM(pallet_evm::Call::<Runtime>::call(
 				AccountId::from(CHARLIE),
 				staking_precompile_address,
@@ -1042,34 +1378,9 @@ fn revoke_nomination_via_precompile() {
 				None, // Use the next nonce
 			))
 			.dispatch(<Runtime as frame_system::Config>::Origin::root()));
-
+			run_to_block(600);
 			// Charlie is still a nominator because only nomination to Alice was revoked
 			assert!(ParachainStaking::is_nominator(&AccountId::from(CHARLIE)));
-
-			// Check for the right events.
-			let expected_events = vec![
-				Event::Balances(pallet_balances::Event::Unreserved(
-					AccountId::from(CHARLIE),
-					500 * MOVR,
-				)),
-				Event::ParachainStaking(parachain_staking::Event::NominatorLeftCollator(
-					AccountId::from(CHARLIE),
-					AccountId::from(ALICE),
-					500 * MOVR,
-					1_000 * MOVR,
-				)),
-				Event::EVM(pallet_evm::Event::<Runtime>::Executed(
-					staking_precompile_address,
-				)),
-			];
-
-			assert_eq!(
-				System::events()
-					.into_iter()
-					.map(|e| e.event)
-					.collect::<Vec<_>>(),
-				expected_events
-			);
 		});
 }
 
