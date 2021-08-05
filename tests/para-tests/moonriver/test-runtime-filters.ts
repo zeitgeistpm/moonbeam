@@ -3,6 +3,7 @@ import { expect } from "chai";
 import { ALITH, ALITH_PRIV_KEY } from "../../util/constants";
 import { describeParachain } from "../../util/setup-para-tests";
 import Keyring from "@polkadot/keyring";
+import { createBlockWithExtrinsic, findExtrinsicWithEvents } from "../../util/substrate-rpc";
 
 const CALL_ERROR = "1010: Invalid Transaction: Transaction call is not expected";
 const keyring = new Keyring({ type: "ethereum" });
@@ -67,7 +68,14 @@ describeParachain("Runtime filters", { chain: "moonriver-local" }, (context) => 
   // This shouldn't fail?
   it("should not be able to authorFilter.setEligible", async function () {
     try {
-        await context.polkadotApi.tx.authorFilter.setEligible(0).signAndSend(account);
+      const extrinsicHash = (await context.polkadotApi.tx.authorFilter.setEligible(0).signAndSend(account)) as any;
+      context.polkadotApi.rpc.chain.subscribeNewHeads(async (header, extra) => {
+        console.log(`Chain is at block: #${header.number}`);
+
+        let { events } = await findExtrinsicWithEvents(context, header.hash, extrinsicHash);
+        console.log(JSON.stringify(events));
+      });
+
     } catch (e) {
         expect(e.message).to.equal(CALL_ERROR);
         return;
