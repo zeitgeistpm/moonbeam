@@ -426,7 +426,7 @@ pub fn run() -> Result<()> {
 
 				// TODO: support all runtimes
 				Ok((
-					cmd.run::<service::moonbase_runtime::Block, service::MoonbaseExecutor>(config),
+					cmd.run::<service::moonriver_runtime::Block, service::MoonriverExecutor>(config),
 					task_manager,
 				))
 			})
