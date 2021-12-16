@@ -879,6 +879,71 @@ pub mod pallet {
 			}
 			Err(Error::<T>::DelegationDNE.into())
 		}
+		pub fn swap_delegation<T: Config>(
+			&mut self,
+			old_candidate: AccountId,
+			new_candidate: AccountId,
+		) -> DispatchResult
+		where
+			BalanceOf<T>: From<Balance>,
+			T::AccountId: From<AccountId>,
+			Delegator<T::AccountId, BalanceOf<T>>: From<Delegator<AccountId, Balance>>,
+		{
+			ensure!(old_candidate != new_candidate, Error::<T>::DelegationDNE); // TODO: add error type
+			let mut option_amt_swapped: Option<Balance> = None;
+			let delegations = self
+				.delegations
+				.0
+				.iter()
+				.filter_map(|x| {
+					if x.owner == collator {
+						option_amt_swapped = Some(x.amount);
+						None
+					} else {
+						Some(x.clone())
+					}
+				})
+				.collect();
+			let amount_swapped = if let Some(amount) = option_amt_swapped {
+				// TODO: check that the amount is above MinNomination::get()?
+				// or do we wait until we check if
+				self.delegations = OrderedSet::from(delegations);
+				amount
+			} else {
+				return Error::<T>::DelegationDNE;
+			};
+			// increase delegation if it exists
+			for x in &mut self.delegations.0 {
+				if x.owner == candidate {
+					x.amount += amount;
+					// update collator state delegation
+					let mut collator_state =
+						<CandidateState<T>>::get(&candidate_id).ok_or(Error::<T>::CandidateDNE)?;
+					let before = collator_state.total_counted;
+					let in_top =
+						collator_state.increase_delegation(self.id.clone().into(), balance_amt);
+					let after = collator_state.total_counted;
+					if collator_state.is_active() && (before != after) {
+						Pallet::<T>::update_active(candidate_id.clone(), after);
+					}
+					<CandidateState<T>>::insert(&candidate_id, collator_state);
+					let new_total_staked = <Total<T>>::get().saturating_add(balance_amt);
+					<Total<T>>::put(new_total_staked);
+					let nom_st: Delegator<T::AccountId, BalanceOf<T>> = self.clone().into();
+					<DelegatorState<T>>::insert(&delegator_id, nom_st);
+					Pallet::<T>::deposit_event(Event::DelegationIncreased(
+						delegator_id,
+						candidate_id,
+						balance_amt,
+						in_top,
+					));
+					return Ok(());
+				}
+			}
+			// if not,
+			// TODO: ensure amount is above MinNomination (to prevent swap if grandfathered in)
+			Ok(())
+		}
 		/// Schedule decrease delegation
 		pub fn schedule_decrease_delegation<T: Config>(
 			&mut self,
@@ -2298,7 +2363,20 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let delegator = ensure_signed(origin)?;
 			let mut state = <DelegatorState<T>>::get(&delegator).ok_or(Error::<T>::DelegatorDNE)?;
-			state.increase_delegation::<T>(candidate.clone(), more)?;
+			state.increase_delegation::<T>(candidate, more)?;
+			Ok(().into())
+		}
+		// TODO: update extrinsic weight
+		#[pallet::weight(<T as Config>::WeightInfo::delegator_bond_more())]
+		/// Swap delegation from an old candidate to a new candidate, executes swap if successful
+		pub fn swap_delegation(
+			origin: OriginFor<T>,
+			old_candidate: T::AccountId,
+			new_candidate: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let delegator = ensure_signed(origin)?;
+			let mut state = <DelegatorState<T>>::get(&delegator).ok_or(Error::<T>::DelegatorDNE)?;
+			//state.swap_delegation::<T>(old_candidate, new_candidate)?;
 			Ok(().into())
 		}
 		#[pallet::weight(<T as Config>::WeightInfo::schedule_delegator_bond_less())]
