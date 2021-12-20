@@ -145,6 +145,15 @@ pub mod pallet {
 	}
 
 	#[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo)]
+	/// Important part of collator state (used for reward computation)
+	pub struct CandidateMetadata<AccountId, Balance> {
+		pub bond: Balance,
+		pub delegations: Vec<Bond<AccountId, Balance>>,
+		pub total: Balance,
+		pub status: CollatorStatus,
+	}
+
+	#[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 	/// Info needed to make delayed payments to stakers after round end
 	pub struct DelayedPayout<Balance> {
 		/// Total round reward (result of compute_issuance() at round end)
@@ -222,6 +231,21 @@ pub mod pallet {
 		/// Current status of the collator
 		pub state: CollatorStatus,
 	}
+
+	#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+	/// Collator candidate bottom delegations info
+	/// includes all data not used in the CandidateSnapshot
+	pub struct CandidateBottomInfo<AccountId, Balance> {
+		/// Bottom delegations (unbounded), ordered least to greatest
+		pub bottom_delegations: Vec<Bond<AccountId, Balance>>,
+		/// Maximum 1 pending request to decrease candidate self bond at any given time
+		pub request: Option<CandidateBondLessRequest<Balance>>,
+		/// Current status of the collator
+		pub state: CollatorStatus,
+	}
+	// we basically want to go through all calls for CandidateState and replace them with calls to either
+	// candidate_snapshot or this, and have the two interact with each other
+	// TODO: rename CandidateSnapshot to CandidateMetadata but call it for all top nomination
 
 	// Temporary manual implementation for migration testing purposes
 	impl<A: PartialEq, B: PartialEq> PartialEq for CollatorCandidate<A, B> {
