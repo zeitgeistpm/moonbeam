@@ -15,7 +15,8 @@
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
 /* TODO: use orml_utilities::OrderedSet without leaking substrate v2.0 dependencies*/
-use parity_scale_codec::{Decode, Encode};
+use frame_support::storage::bounded_vec::BoundedVec;
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -24,10 +25,10 @@ use sp_std::prelude::*;
 
 /// An ordered set backed by `Vec`
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(RuntimeDebug, PartialEq, Eq, Encode, Decode, Default, Clone, TypeInfo)]
-pub struct OrderedSet<T>(pub Vec<T>);
+#[derive(RuntimeDebug, PartialEq, Eq, Encode, Decode, Default, Clone, MaxEncodedLen, TypeInfo)]
+pub struct OrderedSet<T, S: Get<u32>>(pub BoundedVec<T, S>);
 
-impl<T: Ord> OrderedSet<T> {
+impl<T: Ord, S: Get<u32>> OrderedSet<T, S> {
 	/// Create a new empty set
 	pub fn new() -> Self {
 		Self(Vec::new())

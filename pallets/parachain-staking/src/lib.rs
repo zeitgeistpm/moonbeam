@@ -69,6 +69,7 @@ pub use pallet::*;
 pub mod pallet {
 	use crate::{set::OrderedSet, InflationInfo, Range, WeightInfo};
 	use frame_support::pallet_prelude::*;
+	use frame_support::storage::bounded_vec::BoundedVec;
 	use frame_support::traits::{Currency, Get, Imbalance, ReservableCurrency};
 	use frame_system::pallet_prelude::*;
 	use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -83,7 +84,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
-	#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 	pub struct Bond<AccountId, Balance> {
 		pub owner: AccountId,
 		pub amount: Balance,
@@ -128,7 +129,7 @@ pub mod pallet {
 		}
 	}
 
-	#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 	/// The activity status of the collator
 	pub enum CollatorStatus {
 		/// Committed to be online and producing valid blocks (not equivocating)
@@ -145,25 +146,28 @@ pub mod pallet {
 		}
 	}
 
-	#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+	#[scale_info(skip_type_params(MaxTopDelegations))]
 	/// Snapshot of collator state at the start of the round for which they are selected
-	pub struct CollatorSnapshot<AccountId, Balance> {
+	pub struct CollatorSnapshot<AccountId, Balance, MaxTopDelegations: Get<u32>> {
 		pub bond: Balance,
-		pub delegations: Vec<Bond<AccountId, Balance>>,
+		pub delegations: BoundedVec<Bond<AccountId, Balance>, MaxTopDelegations>,
 		pub total: Balance,
 	}
 
-	impl<A, B: Default> Default for CollatorSnapshot<A, B> {
-		fn default() -> CollatorSnapshot<A, B> {
+	impl<A, B: Default, C: Get<u32>> Default for CollatorSnapshot<A, B, C> {
+		fn default() -> CollatorSnapshot<A, B, C> {
+			let delegations =
+				BoundedVec::<A, C>::try_from(Vec::new()).expect("too many delegations in snapshot");
 			CollatorSnapshot {
 				bond: B::default(),
-				delegations: Vec::new(),
+				delegations,
 				total: B::default(),
 			}
 		}
 	}
 
-	#[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(Default, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 	/// Info needed to make delayed payments to stakers after round end
 	pub struct DelayedPayout<Balance> {
 		/// Total round reward (result of compute_issuance() at round end)
@@ -174,55 +178,17 @@ pub mod pallet {
 		pub collator_commission: Perbill,
 	}
 
-	#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
-	/// DEPRECATED
-	/// Collator state with commission fee, bonded stake, and delegations
-	pub struct Collator2<AccountId, Balance> {
-		/// The account of this collator
-		pub id: AccountId,
-		/// This collator's self stake.
-		pub bond: Balance,
-		/// Set of all nominator AccountIds (to prevent >1 nomination per AccountId)
-		pub nominators: OrderedSet<AccountId>,
-		/// Top T::MaxDelegatorsPerCollator::get() nominators, ordered greatest to least
-		pub top_nominators: Vec<Bond<AccountId, Balance>>,
-		/// Bottom nominators (unbounded), ordered least to greatest
-		pub bottom_nominators: Vec<Bond<AccountId, Balance>>,
-		/// Sum of top delegations + self.bond
-		pub total_counted: Balance,
-		/// Sum of all delegations + self.bond = (total_counted + uncounted)
-		pub total_backing: Balance,
-		/// Current status of the collator
-		pub state: CollatorStatus,
-	}
-
-	impl<A, B> From<Collator2<A, B>> for CollatorCandidate<A, B> {
-		fn from(other: Collator2<A, B>) -> CollatorCandidate<A, B> {
-			CollatorCandidate {
-				id: other.id,
-				bond: other.bond,
-				delegators: other.nominators,
-				top_delegations: other.top_nominators,
-				bottom_delegations: other.bottom_nominators,
-				total_counted: other.total_counted,
-				total_backing: other.total_backing,
-				request: None,
-				state: other.state,
-			}
-		}
-	}
-
-	#[derive(PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 	/// Request scheduled to change the collator candidate self-bond
 	pub struct CandidateBondLessRequest<Balance> {
 		pub amount: Balance,
 		pub when_executable: RoundIndex,
 	}
 
-	#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 	/// DEPRECATED, replaced by `CandidateMetadata` and two storage instances of `Delegations`
 	/// Collator candidate state with self bond + delegations
-	pub struct CollatorCandidate<AccountId, Balance> {
+	pub struct CollatorCandidate<AccountId, Balance, MaxTop: Get<u32>, MaxBottom: Get<u32>> {
 		/// The account of this collator
 		pub id: AccountId,
 		/// This collator's self stake.
@@ -230,9 +196,9 @@ pub mod pallet {
 		/// Set of all delegator AccountIds (to prevent >1 delegation per AccountId)
 		pub delegators: OrderedSet<AccountId>,
 		/// Top T::MaxDelegatorsPerCollator::get() delegations, ordered greatest to least
-		pub top_delegations: Vec<Bond<AccountId, Balance>>,
+		pub top_delegations: BoundedVec<Bond<AccountId, Balance>, MaxTop>,
 		/// Bottom delegations (unbounded), ordered least to greatest
-		pub bottom_delegations: Vec<Bond<AccountId, Balance>>,
+		pub bottom_delegations: BoundedVec<Bond<AccountId, Balance>, MaxBottom>,
 		/// Sum of top delegations + self.bond
 		pub total_counted: Balance,
 		/// Sum of all delegations + self.bond = (total_counted + uncounted)
@@ -243,24 +209,28 @@ pub mod pallet {
 		pub state: CollatorStatus,
 	}
 
-	#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+	#[scale_info(skip_type_params(MaxDelegations))]
 	/// Type for top and bottom delegation storage item
-	pub struct Delegations<AccountId, Balance> {
-		pub delegations: Vec<Bond<AccountId, Balance>>,
+	pub struct Delegations<AccountId, Balance, MaxDelegations: Get<u32>> {
+		pub delegations: BoundedVec<Bond<AccountId, Balance>, MaxDelegations>,
 		pub total: Balance,
 	}
 
-	impl<A, B: Default> Default for Delegations<A, B> {
-		fn default() -> Delegations<A, B> {
+	impl<A, B: Default, C: Get<u32>> Default for Delegations<A, B, C> {
+		fn default() -> Delegations<A, B, C> {
 			Delegations {
-				delegations: Vec::new(),
+				delegations: Vec::new().into(),
 				total: B::default(),
 			}
 		}
 	}
 
-	impl<AccountId, Balance: Copy + Ord + sp_std::ops::AddAssign + Zero + Saturating>
-		Delegations<AccountId, Balance>
+	impl<
+			AccountId,
+			Balance: Copy + Ord + sp_std::ops::AddAssign + Zero + Saturating,
+			C: Get<u32>,
+		> Delegations<AccountId, Balance, C>
 	{
 		pub fn sort_greatest_to_least(&mut self) {
 			self.delegations.sort_by(|a, b| b.amount.cmp(&a.amount));
@@ -337,7 +307,7 @@ pub mod pallet {
 		}
 	}
 
-	#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(PartialEq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 	/// Capacity status for top or bottom delegations
 	pub enum CapacityStatus {
 		/// Reached capacity
@@ -348,7 +318,7 @@ pub mod pallet {
 		Partial,
 	}
 
-	#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 	/// All candidate info except the top and bottom delegations
 	pub struct CandidateMetadata<Balance> {
 		/// This candidate's self bond amount
@@ -526,7 +496,11 @@ pub mod pallet {
 		/// Reset top delegations metadata
 		pub fn reset_top_data<T: Config>(
 			&mut self,
-			top_delegations: &Delegations<T::AccountId, BalanceOf<T>>,
+			top_delegations: &Delegations<
+				T::AccountId,
+				BalanceOf<T>,
+				T::MaxTopDelegationsPerCandidate,
+			>,
 		) where
 			BalanceOf<T>: Into<Balance>,
 		{
@@ -537,7 +511,11 @@ pub mod pallet {
 		/// Reset bottom delegations metadata
 		pub fn reset_bottom_data<T: Config>(
 			&mut self,
-			bottom_delegations: &Delegations<T::AccountId, BalanceOf<T>>,
+			bottom_delegations: &Delegations<
+				T::AccountId,
+				BalanceOf<T>,
+				T::MaxBottomDelegationsPerCandidate,
+			>,
 		) where
 			BalanceOf<T>: Into<Balance>,
 		{
@@ -1204,8 +1182,8 @@ pub mod pallet {
 		}
 	}
 
-	impl<A: Clone, B: Copy> From<CollatorCandidate<A, B>> for CollatorSnapshot<A, B> {
-		fn from(other: CollatorCandidate<A, B>) -> CollatorSnapshot<A, B> {
+	impl<A: Clone, B: Copy, C: Get<u32>> From<CollatorCandidate<A, B>> for CollatorSnapshot<A, B, C> {
+		fn from(other: CollatorCandidate<A, B>) -> CollatorSnapshot<A, B, C> {
 			CollatorSnapshot {
 				bond: other.bond,
 				delegations: other.top_delegations,
@@ -2140,7 +2118,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		Delegations<T::AccountId, BalanceOf<T>>,
+		Delegations<T::AccountId, BalanceOf<T>, T::MaxTopDelegationsPerCandidate>,
 		OptionQuery,
 	>;
 
@@ -2151,19 +2129,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		Delegations<T::AccountId, BalanceOf<T>>,
-		OptionQuery,
-	>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn collator_state2)]
-	/// DEPRECATED in favor of CandidateState
-	/// Get collator state associated with an account if account is collating else None
-	pub(crate) type CollatorState2<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		Collator2<T::AccountId, BalanceOf<T>>,
+		Delegations<T::AccountId, BalanceOf<T>, T::MaxBottomDelegationsPerCandidate>,
 		OptionQuery,
 	>;
 
@@ -2192,7 +2158,7 @@ pub mod pallet {
 		RoundIndex,
 		Twox64Concat,
 		T::AccountId,
-		CollatorSnapshot<T::AccountId, BalanceOf<T>>,
+		CollatorSnapshot<T::AccountId, BalanceOf<T>, T::MaxTopDelegationsPerCandidate>,
 		ValueQuery,
 	>;
 
@@ -2571,11 +2537,20 @@ pub mod pallet {
 			T::Currency::reserve(&acc, bond)?;
 			let candidate = CandidateMetadata::new(bond);
 			<CandidateInfo<T>>::insert(&acc, candidate);
-			let empty_delegations: Delegations<T::AccountId, BalanceOf<T>> = Default::default();
+			let empty_top_delegations: Delegations<
+				T::AccountId,
+				BalanceOf<T>,
+				T::MaxTopDelegationsPerCandidate,
+			> = Default::default();
+			let empty_bottom_delegations: Delegations<
+				T::AccountId,
+				BalanceOf<T>,
+				T::MaxBottomDelegationsPerCandidate,
+			> = Default::default();
 			// insert empty top delegations
-			<TopDelegations<T>>::insert(&acc, empty_delegations.clone());
+			<TopDelegations<T>>::insert(&acc, empty_top_delegations);
 			// insert empty bottom delegations
-			<BottomDelegations<T>>::insert(&acc, empty_delegations);
+			<BottomDelegations<T>>::insert(&acc, empty_bottom_delegations);
 			<CandidatePool<T>>::put(candidates);
 			let new_total = <Total<T>>::get().saturating_add(bond);
 			<Total<T>>::put(new_total);
