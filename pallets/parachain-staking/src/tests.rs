@@ -8203,3 +8203,71 @@ fn verify_purge_storage_migration_works() {
 		}
 	});
 }
+
+#[test]
+fn delegation_kicked_from_bottom_removes_pending_request() {
+	ExtBuilder::default()
+		.with_balances(vec![
+			(1, 30),
+			(2, 31),
+			(3, 20),
+			(4, 20),
+			(5, 20),
+			(6, 20),
+			(7, 20),
+			(8, 20),
+			(9, 20),
+			(10, 20),
+			(11, 30),
+		])
+		.with_candidates(vec![(1, 30), (11, 30)])
+		.with_delegations(vec![
+			(2, 1, 19),
+			(2, 11, 10), // second delegation so not left after first is kicked
+			(3, 1, 20),
+			(4, 1, 20),
+			(5, 1, 20),
+			(6, 1, 20),
+			(7, 1, 20),
+			(8, 1, 20),
+			(9, 1, 20),
+		])
+		.build()
+		.execute_with(|| {
+			assert_ok!(ParachainStaking::schedule_revoke_delegation(
+				Origin::signed(2),
+				1
+			));
+			roll_to(10);
+			// 10 delegates to full 1 => kicks lowest delegation (2, 19)
+			assert_ok!(ParachainStaking::delegate(Origin::signed(10), 1, 20, 8, 0));
+			// check the event
+			assert_event_emitted!(Event::DelegationKicked {
+				delegator: 2,
+				candidate: 1,
+				unstaked_amount: 19,
+			});
+			// 2 redelegates with more and kicks 10
+			assert_ok!(ParachainStaking::delegate(Origin::signed(2), 1, 21, 8, 1));
+			// check the event
+			// assert_event_emitted!(Event::DelegationKicked {
+			// 	delegator: 10,
+			// 	candidate: 1,
+			// 	unstaked_amount: 20,
+			// });
+			// execute pending request for 1 and see what happens
+			assert_noop!(
+				ParachainStaking::execute_delegation_request(Origin::signed(2), 2, 1),
+				Error::<Test>::DelegationDNE
+			);
+			assert_ok!(ParachainStaking::schedule_revoke_delegation(
+				Origin::signed(2),
+				1
+			));
+			assert_ok!(ParachainStaking::execute_delegation_request(
+				Origin::signed(2),
+				2,
+				1
+			));
+		});
+}
