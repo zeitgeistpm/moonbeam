@@ -7440,6 +7440,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-randomness"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-randomness-collective-flip"
 version = "4.0.0-dev"
 source = "git+https://github.com/purestake/substrate?branch=moonbeam-polkadot-v0.9.17#c84f20046004e0c5f158d36bf9c8b2ecfdc41281"

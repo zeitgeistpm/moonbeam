@@ -10,6 +10,7 @@ members = [
 	"pallets/maintenance-mode",
 	"pallets/migrations",
 	"pallets/proxy-genesis-companion",
+	"pallets/randomness", # remove once added to runtime
 	"precompiles/utils/macro",
 	"runtime/moonbase",
 	"runtime/moonbeam",
