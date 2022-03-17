@@ -17,7 +17,7 @@ parity-scale-codec = { version = "2.2", default-features = false, features = [ "
 scale-info = { version = "1.0", default-features = false, features = [ "derive" ] }
 sp-runtime = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.16", default-features = false }
 sp-std = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.16", default-features = false }
-substrate-fixed = { git = "https://github.com/encointer/substrate-fixed", default-features = false }
+substrate-fixed = { rev = "5984ba9b9433d5007597c7f03f65ea5bf6d08601", git = "https://github.com/encointer/substrate-fixed", default-features = false }
 
 # Nimbus
 nimbus-primitives = { git = "https://github.com/purestake/nimbus", branch = "moonbeam-polkadot-v0.9.16", default-features = false }
