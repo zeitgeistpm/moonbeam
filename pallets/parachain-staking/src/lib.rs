@@ -1762,19 +1762,19 @@ pub mod pallet {
 		pub status: DelegatorStatus,
 	}
 
-	// /// Temporary function to migrate state
-	// pub(crate) fn migrate_nominator_to_delegator_state<T: Config>(
-	// 	id: T::AccountId,
-	// 	nominator: Nominator2<T::AccountId, BalanceOf<T>>,
-	// ) -> Delegator<T::AccountId, BalanceOf<T>> {
-	// 	Delegator {
-	// 		id,
-	// 		delegations: nominator.delegations,
-	// 		total: nominator.total,
-	// 		requests: PendingDelegationRequests::new(),
-	// 		status: nominator.status,
-	// 	}
-	// }
+	/// Temporary function to migrate state
+	pub(crate) fn migrate_nominator_to_delegator_state<T: Config>(
+		id: T::AccountId,
+		nominator: Nominator2<T::AccountId, BalanceOf<T>>,
+	) -> Delegator<T::AccountId, BalanceOf<T>> {
+		Delegator {
+			id,
+			delegations: nominator.delegations,
+			total: nominator.total,
+			requests: PendingDelegationRequests::new(),
+			status: nominator.status,
+		}
+	}
 
 	#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
 	/// The current round index and transition information
@@ -1838,6 +1838,30 @@ pub mod pallet {
 				account: A::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
 					.expect("infinite length input; no invalid inputs for type; qed"),
 				percent: Percent::zero(),
+			}
+		}
+	}
+
+	#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+	/// DEPRECATED
+	/// Store and process all delayed exits by collators and nominators
+	pub struct ExitQ<AccountId> {
+		/// Candidate exit set
+		pub candidates: OrderedSet<AccountId>,
+		/// Nominator exit set (does not include nominators that made `revoke` requests)
+		pub nominators_leaving: OrderedSet<AccountId>,
+		/// [Candidate, Round to Exit]
+		pub candidate_schedule: Vec<(AccountId, RoundIndex)>,
+		/// [Nominator, Some(ValidatorId) || None => All Delegations, Round To Exit]
+		pub nominator_schedule: Vec<(AccountId, Option<AccountId>, RoundIndex)>,
+	}
+	impl<A: Ord> Default for ExitQ<A> {
+		fn default() -> ExitQ<A> {
+			ExitQ {
+				candidates: OrderedSet::new(),
+				nominators_leaving: OrderedSet::new(),
+				candidate_schedule: Vec::new(),
+				nominator_schedule: Vec::new(),
 			}
 		}
 	}
@@ -2235,6 +2259,12 @@ pub mod pallet {
 		RewardPoint,
 		ValueQuery,
 	>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn exit_queue2)]
+	/// DEPRECATED, to be removed in future runtime upgrade but necessary for runtime migration
+	/// A queue of collators and nominators awaiting exit
+	pub type ExitQueue2<T: Config> = StorageValue<_, ExitQ<T::AccountId>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
