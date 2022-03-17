@@ -1857,6 +1857,30 @@ pub mod pallet {
 		}
 	}
 
+	#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
+	/// DEPRECATED
+	/// Store and process all delayed exits by collators and nominators
+	pub struct ExitQ<AccountId> {
+		/// Candidate exit set
+		pub candidates: OrderedSet<AccountId>,
+		/// Nominator exit set (does not include nominators that made `revoke` requests)
+		pub nominators_leaving: OrderedSet<AccountId>,
+		/// [Candidate, Round to Exit]
+		pub candidate_schedule: Vec<(AccountId, RoundIndex)>,
+		/// [Nominator, Some(ValidatorId) || None => All Delegations, Round To Exit]
+		pub nominator_schedule: Vec<(AccountId, Option<AccountId>, RoundIndex)>,
+	}
+	impl<A: Ord> Default for ExitQ<A> {
+		fn default() -> ExitQ<A> {
+			ExitQ {
+				candidates: OrderedSet::new(),
+				nominators_leaving: OrderedSet::new(),
+				candidate_schedule: Vec::new(),
+				nominator_schedule: Vec::new(),
+			}
+		}
+	}
+
 	pub(crate) type RoundIndex = u32;
 	type RewardPoint = u32;
 	pub type BalanceOf<T> =
@@ -2350,6 +2374,12 @@ pub mod pallet {
 		RewardPoint,
 		ValueQuery,
 	>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn exit_queue2)]
+	/// DEPRECATED, to be removed in future runtime upgrade but necessary for runtime migration
+	/// A queue of collators and nominators awaiting exit
+	pub type ExitQueue2<T: Config> = StorageValue<_, ExitQ<T::AccountId>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
