@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["SubstrateWeight","Weights for xcm_transactor using the Substrate node and recommended hardware."]],"trait":[["WeightInfo","Weight functions needed for xcm_transactor."]]});

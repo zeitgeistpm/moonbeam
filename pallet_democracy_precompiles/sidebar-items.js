@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["DemocracyWrapper","A precompile to wrap the functionality from pallet democracy."]]});
