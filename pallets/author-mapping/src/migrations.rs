@@ -62,7 +62,7 @@ impl<T: Config> OnRuntimeUpgrade for AddAccountIdToNimbusLookup<T> {
 		use frame_support::{
 			storage::migration::storage_key_iter,
 			traits::OnRuntimeUpgradeHelpersExt,
-		}
+		};
 		
 		// get total deposited and account for all nimbus_keys
 		const AUTHORMAPPING: &[u8] = b"AuthorMapping";
