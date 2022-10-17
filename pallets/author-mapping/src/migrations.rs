@@ -59,18 +59,28 @@ impl<T: Config> OnRuntimeUpgrade for AddAccountIdToNimbusLookup<T> {
 	}
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
-		use frame_support::traits::OnRuntimeUpgradeHelpersExt;
-		use sp_std::vec::Vec;
+		use frame_support::{
+			storage::migration::storage_key_iter,
+			traits::OnRuntimeUpgradeHelpersExt,
+		}
+		
+		// get total deposited and account for all nimbus_keys
+		const AUTHORMAPPING: &[u8] = b"AuthorMapping";
+		const MAPPINGWITHDEPOSIT: &[u8] = b"MappingWithDeposit";
 
-		let mut nimbus_set: Vec<NimbusId> = Vec::new();
-		for (nimbus_id, info) in <MappingWithDeposit<T>>::iter() {
-			if !nimbus_set.contains(&nimbus_id) {
-				Self::set_temp_storage(
-					info.account,
-					&format!("MappingWithDeposit{:?}Account", nimbus_id)[..],
-				);
-				nimbus_set.push(nimbus_id);
-			}
+		for (nimbus_id, info) in storage_key_iter::<
+			NimbusId,
+			OldRegistrationInfo<T::AccountId, BalanceOf<T>>,
+			frame_support::Blake2_128Concat
+		>(AUTHORMAPPING, MAPPINGWITHDEPOSIT) {
+			Self::set_temp_storage(
+				info.account,
+				&format!("MappingWithDeposit{:?}Account", nimbus_id)[..],
+			);
+			Self::set_temp_storage(
+				info.deposit,
+				&format!("MappingWithDeposit{:?}Deposit", nimbus_id)[..],
+			);
 		}
 		Ok(())
 	}
