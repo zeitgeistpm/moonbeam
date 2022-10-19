@@ -363,7 +363,10 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller.clone()), more)
 	verify {
 		let expected_bond = more * 2u32.into();
-		assert_eq!(T::Currency::reserved_balance(&caller), expected_bond);
+		assert_eq!(
+			Pallet::<T>::candidate_info(&caller).expect("candidate was created, qed").bond,
+			expected_bond,
+		);
 	}
 
 	schedule_candidate_bond_less {
@@ -407,7 +410,10 @@ benchmarks! {
 			caller.clone()
 		)?;
 	} verify {
-		assert_eq!(T::Currency::reserved_balance(&caller), min_candidate_stk);
+		assert_eq!(
+			Pallet::<T>::candidate_info(&caller).expect("candidate was created, qed").bond,
+			min_candidate_stk,
+		);
 	}
 
 	cancel_candidate_bond_less {
@@ -638,7 +644,10 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller.clone()), collator.clone(), bond)
 	verify {
 		let expected_bond = bond * 2u32.into();
-		assert_eq!(T::Currency::reserved_balance(&caller), expected_bond);
+		assert_eq!(
+			Pallet::<T>::delegator_state(&caller).expect("candidate was created, qed").total,
+			expected_bond,
+		);
 	}
 
 	schedule_delegator_bond_less {
@@ -737,7 +746,10 @@ benchmarks! {
 		)?;
 	} verify {
 		let expected = total - bond_less;
-		assert_eq!(T::Currency::reserved_balance(&caller), expected);
+		assert_eq!(
+			Pallet::<T>::delegator_state(&caller).expect("candidate was created, qed").total,
+			expected,
+		);
 	}
 
 	cancel_revoke_delegation {
