@@ -28,10 +28,10 @@ frame-support = { git = "https://github.com/purestake/substrate", branch = "moon
 pallet-proxy = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
 pallet-utility = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
 
-kusama-runtime = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
-polkadot-runtime = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
-rococo-runtime = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
-westend-runtime = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
+kusama-runtime = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
+polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
+rococo-runtime = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
+westend-runtime = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
 
 [features]
 default = [ "std" ]

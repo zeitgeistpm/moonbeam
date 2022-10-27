@@ -121,11 +121,11 @@ nimbus-primitives = { git = "https://github.com/purestake/nimbus", branch = "moo
 pallet-author-inherent = { git = "https://github.com/purestake/nimbus", branch = "moonbeam-polkadot-v0.9.26" }
 
 # Polkadot
-polkadot-cli = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
-polkadot-parachain = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
-polkadot-primitives = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
-polkadot-service = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
-xcm = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26", default-features = false }
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26", default-features = false }
 
 # Benchmarking
 frame-benchmarking = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
@@ -138,7 +138,7 @@ prometheus = { version = "0.13.0", default-features = false }
 rand = "0.7.3"
 
 # Polkadot dev-dependencies
-polkadot-runtime-common = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
+polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
 
 # Substrate dev-dependencies
 pallet-sudo = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }

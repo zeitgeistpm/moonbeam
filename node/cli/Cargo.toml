@@ -32,10 +32,10 @@ cumulus-primitives-core = { git = "https://github.com/purestake/cumulus", branch
 nimbus-primitives = { git = "https://github.com/purestake/nimbus", branch = "moonbeam-polkadot-v0.9.26" }
 
 # Polkadot
-polkadot-cli = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
-polkadot-parachain = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
-polkadot-primitives = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
-polkadot-service = { git = "https://github.com/purestake/polkadot", branch = "moonbeam-polkadot-v0.9.26" }
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
