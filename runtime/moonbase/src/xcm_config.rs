@@ -48,7 +48,8 @@ use xcm_builder::{
 };
 
 use xcm::latest::prelude::*;
-use xcm_executor::traits::{CallDispatcher, JustTry};
+// use xcm_executor::traits::{CallDispatcher, JustTry};
+use xcm_executor::traits::JustTry;
 
 use orml_xcm_support::MultiNativeAsset;
 use xcm_primitives::{
@@ -295,7 +296,7 @@ impl xcm_executor::Config for XcmExecutorConfig {
 	type SubscriptionService = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetClaims = PolkadotXcm;
-	type CallDispatcher = MoonbeamCall;
+	// type CallDispatcher = MoonbeamCall;
 }
 
 type XcmExecutor = xcm_executor::XcmExecutor<XcmExecutorConfig>;

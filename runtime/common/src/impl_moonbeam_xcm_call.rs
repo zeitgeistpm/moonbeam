@@ -19,30 +19,30 @@ macro_rules! impl_moonbeam_xcm_call {
 	{} => {
 
 		pub struct MoonbeamCall;
-		impl CallDispatcher<Call> for MoonbeamCall {
-			fn dispatch(
-				call: Call,
-				origin: Origin,
-			) -> Result<PostDispatchInfoOf<Call>, DispatchErrorWithPostInfo<PostDispatchInfoOf<Call>>> {
-				if let Ok(raw_origin) = TryInto::<RawOrigin<AccountId>>::try_into(origin.clone().caller) {
-					match (call.clone(), raw_origin) {
-						(
-							Call::EthereumXcm(pallet_ethereum_xcm::Call::transact { .. }) |
-							Call::EthereumXcm(pallet_ethereum_xcm::Call::transact_through_proxy { .. }),
-							RawOrigin::Signed(account_id)
-						) => {
-							return Call::dispatch(
-								call,
-								pallet_ethereum_xcm::Origin::XcmEthereumTransaction(
-									account_id.into()
-								).into()
-							);
-						},
-						_ => {}
-					}
-				}
-				Call::dispatch(call, origin)
-			}
-		}
+		// impl CallDispatcher<Call> for MoonbeamCall {
+		// 	fn dispatch(
+		// 		call: Call,
+		// 		origin: Origin,
+		// 	) -> Result<PostDispatchInfoOf<Call>, DispatchErrorWithPostInfo<PostDispatchInfoOf<Call>>> {
+		// 		if let Ok(raw_origin) = TryInto::<RawOrigin<AccountId>>::try_into(origin.clone().caller) {
+		// 			match (call.clone(), raw_origin) {
+		// 				(
+		// 					Call::EthereumXcm(pallet_ethereum_xcm::Call::transact { .. }) |
+		// 					Call::EthereumXcm(pallet_ethereum_xcm::Call::transact_through_proxy { .. }),
+		// 					RawOrigin::Signed(account_id)
+		// 				) => {
+		// 					return Call::dispatch(
+		// 						call,
+		// 						pallet_ethereum_xcm::Origin::XcmEthereumTransaction(
+		// 							account_id.into()
+		// 						).into()
+		// 					);
+		// 				},
+		// 				_ => {}
+		// 			}
+		// 		}
+		// 		Call::dispatch(call, origin)
+		// 	}
+		// }
 	}
 }
