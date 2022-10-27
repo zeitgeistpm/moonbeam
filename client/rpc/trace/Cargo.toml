@@ -24,16 +24,16 @@ moonbeam-rpc-core-types = { path = "../../rpc-core/types" }
 moonbeam-rpc-primitives-debug = { path = "../../../primitives/rpc/debug" }
 
 # Substrate
-sc-client-api = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
-sc-network = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
-sc-utils = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
-sp-api = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
-sp-block-builder = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
-sp-blockchain = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
-sp-io = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
-sp-runtime = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
-sp-std = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
-sp-transaction-pool = { git = "https://github.com/purestake/substrate", branch = "moonbeam-polkadot-v0.9.26" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+sc-network = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+sc-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
 
 # Frontier
 fc-consensus = { git = "https://github.com/purestake/frontier", branch = "moonbeam-polkadot-v0.9.26" }
