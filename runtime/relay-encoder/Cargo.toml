@@ -14,19 +14,19 @@ pallet-evm-precompile-relay-encoder = { path = "../../precompiles/relay-encoder/
 xcm-primitives = { path = "../../primitives/xcm", default-features = false }
 
 # Substrate
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-pallet-staking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
+frame-system = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p", default-features = false }
+pallet-staking = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p", default-features = false }
 parity-scale-codec = { version = "3.0.0", default-features = false, features = [ "derive" ] }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
+sp-runtime = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p", default-features = false }
+sp-std = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p", default-features = false }
 
 # Cumulus
-cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.26", default-features = false }
+cumulus-primitives-core = { git = "https://github.com/zeitgeistpm/cumulus", branch = "polkadot-v0.9.26-libp2p", default-features = false }
 
 [dev-dependencies]
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
-pallet-proxy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
-pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+frame-support = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p" }
+pallet-proxy = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p" }
+pallet-utility = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p" }
 
 kusama-runtime = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
 polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }

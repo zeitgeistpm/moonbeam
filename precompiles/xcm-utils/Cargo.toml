@@ -12,14 +12,14 @@ num_enum = { version = "0.5.3", default-features = false }
 precompile-utils = { path = "../utils", default-features = false }
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
+frame-support = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p", default-features = false }
+frame-system = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p", default-features = false }
+sp-core = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p", default-features = false }
+sp-std = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p", default-features = false }
 
 # Frontier
-fp-evm = { git = "https://github.com/zeitgeistpm/frontier", branch = "polkadot-v0.9.26", default-features = false }
-pallet-evm = { git = "https://github.com/zeitgeistpm/frontier", branch = "polkadot-v0.9.26", default-features = false }
+fp-evm = { git = "https://github.com/zeitgeistpm/frontier", branch = "polkadot-v0.9.26-libp2p", default-features = false }
+pallet-evm = { git = "https://github.com/zeitgeistpm/frontier", branch = "polkadot-v0.9.26-libp2p", default-features = false }
 
 # Polkadot
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26", default-features = false }
@@ -35,14 +35,14 @@ precompile-utils = { path = "../utils", features = [ "testing" ] }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "max-encoded-len" ] }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+pallet-balances = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p" }
+pallet-timestamp = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p" }
 scale-info = { version = "2.0", default-features = false, features = [ "derive" ] }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26" }
+sp-io = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p" }
+sp-runtime = { git = "https://github.com/zeitgeistpm/substrate", branch = "polkadot-v0.9.26-libp2p" }
 
 # Cumulus
-cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.26" }
+cumulus-primitives-core = { git = "https://github.com/zeitgeistpm/cumulus", branch = "polkadot-v0.9.26-libp2p" }
 
 # Polkadot
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.26" }
