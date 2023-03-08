@@ -74,6 +74,10 @@ pub trait GetBabeData<EpochIndex, Randomness> {
 	fn get_epoch_randomness() -> Randomness;
 }
 
+pub trait AddressMapping<AccountId> {
+	fn into_account_id(address: sp_core::H160) -> AccountId;
+}
+
 #[pallet]
 pub mod pallet {
 	use super::*;
@@ -82,7 +86,6 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, PalletId};
 	use frame_system::pallet_prelude::*;
 	use nimbus_primitives::NimbusId;
-	use pallet_evm::AddressMapping;
 	use session_keys_primitives::{InherentError, KeysLookup, VrfId, INHERENT_IDENTIFIER};
 	use sp_core::{H160, H256};
 	use sp_runtime::traits::{AccountIdConversion, Saturating};
