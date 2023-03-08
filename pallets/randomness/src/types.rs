@@ -17,7 +17,7 @@
 use crate::{BalanceOf, Config, Error, Event, Pallet, RandomnessResults, RelayEpoch, RequestId};
 use frame_support::pallet_prelude::*;
 use frame_support::traits::{Currency, ExistenceRequirement::KeepAlive};
-use pallet_evm::AddressMapping;
+use crate::AddressMapping;
 use sp_core::{H160, H256};
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating};
 use sp_std::vec::Vec;
