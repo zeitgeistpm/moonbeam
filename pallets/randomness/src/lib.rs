@@ -74,8 +74,8 @@ pub trait GetBabeData<EpochIndex, Randomness> {
 	fn get_epoch_randomness() -> Randomness;
 }
 
-pub trait AddressMapping<AccountId> {
-	fn into_account_id(address: sp_core::H160) -> AccountId;
+pub trait AddressMapping<A> {
+	fn into_account_id(address: sp_core::H160) -> A;
 }
 
 #[pallet]
