@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"precompile_utils":[["impl <a class=\"trait\" href=\"precompile_utils/prelude/trait.PrecompileHandle.html\" title=\"trait precompile_utils::prelude::PrecompileHandle\">PrecompileHandle</a> for <a class=\"struct\" href=\"precompile_utils/testing/struct.MockHandle.html\" title=\"struct precompile_utils::testing::MockHandle\">MockHandle</a>"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
