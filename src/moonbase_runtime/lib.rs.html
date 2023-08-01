@@ -1684,10 +1684,6 @@
 <a href="#1684" id="1684">1684</a>
 <a href="#1685" id="1685">1685</a>
 <a href="#1686" id="1686">1686</a>
-<a href="#1687" id="1687">1687</a>
-<a href="#1688" id="1688">1688</a>
-<a href="#1689" id="1689">1689</a>
-<a href="#1690" id="1690">1690</a>
 </pre><pre class="rust"><code><span class="comment">// Copyright 2019-2022 PureStake Inc.
 // This file is part of Moonbeam.
 
@@ -1760,7 +1756,8 @@
 <span class="kw">use </span>pallet_ethereum::{PostLogContent, Transaction <span class="kw">as </span>EthereumTransaction};
 <span class="kw">use </span>pallet_evm::{
 	Account <span class="kw">as </span>EVMAccount, EVMCurrencyAdapter, EnsureAddressNever, EnsureAddressRoot,
-	FeeCalculator, GasWeightMapping, OnChargeEVMTransaction <span class="kw">as </span>OnChargeEVMTransactionT, Runner,
+	FeeCalculator, GasWeightMapping, IdentityAddressMapping,
+	OnChargeEVMTransaction <span class="kw">as </span>OnChargeEVMTransactionT, Runner,
 };
 <span class="kw">pub use </span>pallet_parachain_staking::{InflationInfo, Range};
 <span class="kw">use </span>pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
@@ -1869,7 +1866,7 @@
 	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;moonbase&quot;</span>),
 	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;moonbase&quot;</span>),
 	authoring_version: <span class="number">4</span>,
-	spec_version: <span class="number">2400</span>,
+	spec_version: <span class="number">2500</span>,
 	impl_version: <span class="number">0</span>,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: <span class="number">2</span>,
@@ -2172,7 +2169,7 @@
 	<span class="kw">type </span>BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping&lt;<span class="self">Self</span>&gt;;
 	<span class="kw">type </span>CallOrigin = EnsureAddressRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>WithdrawOrigin = EnsureAddressNever&lt;AccountId&gt;;
-	<span class="kw">type </span>AddressMapping = moonbeam_runtime_common::IntoAddressMapping;
+	<span class="kw">type </span>AddressMapping = IdentityAddressMapping;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Runner = pallet_evm::runner::stack::Runner&lt;<span class="self">Self</span>&gt;;
@@ -2423,13 +2420,12 @@
 	</span><span class="kw">type </span>MinCandidateStk = ConstU128&lt;{ <span class="number">500 </span>* currency::UNIT * currency::SUPPLY_FACTOR }&gt;;
 	<span class="doccomment">/// Minimum stake required to be reserved to be a delegator
 	</span><span class="kw">type </span>MinDelegation = ConstU128&lt;{ <span class="number">1 </span>* currency::UNIT * currency::SUPPLY_FACTOR }&gt;;
-	<span class="doccomment">/// Minimum stake required to be reserved to be a delegator
-	</span><span class="kw">type </span>MinDelegatorStk = ConstU128&lt;{ <span class="number">1 </span>* currency::UNIT * currency::SUPPLY_FACTOR }&gt;;
 	<span class="kw">type </span>BlockAuthor = AuthorInherent;
 	<span class="kw">type </span>OnCollatorPayout = ();
 	<span class="kw">type </span>PayoutCollatorReward = PayoutCollatorOrOrbiterReward;
 	<span class="kw">type </span>OnNewRound = OnNewRound;
 	<span class="kw">type </span>WeightInfo = pallet_parachain_staking::weights::SubstrateWeight&lt;Runtime&gt;;
+	<span class="kw">type </span>MaxCandidates = ConstU32&lt;<span class="number">200</span>&gt;;
 }
 
 <span class="kw">impl </span>pallet_author_inherent::Config <span class="kw">for </span>Runtime {
@@ -2952,7 +2948,7 @@
 
 <span class="kw">impl </span>pallet_randomness::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>AddressMapping = moonbeam_runtime_common::IntoAddressMapping;
+	<span class="kw">type </span>AddressMapping = IdentityAddressMapping;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>BabeDataGetter = BabeDataGetter;
 	<span class="kw">type </span>VrfKeyLookup = AuthorMapping;
@@ -3287,10 +3283,6 @@
 		);
 		<span class="macro">assert_eq!</span>(
 			<span class="macro">get!</span>(pallet_parachain_staking, MinDelegation, u128),
-			Balance::from(<span class="number">1 </span>* UNIT)
-		);
-		<span class="macro">assert_eq!</span>(
-			<span class="macro">get!</span>(pallet_parachain_staking, MinDelegatorStk, u128),
 			Balance::from(<span class="number">1 </span>* UNIT)
 		);
 
