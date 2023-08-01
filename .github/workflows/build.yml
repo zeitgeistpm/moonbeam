@@ -217,7 +217,7 @@ jobs:
         run: |
           POLKADOT_REPO=${{ needs.set-tags.outputs.polkadot_repo }}
           POLKADOT_COMMIT=${{ needs.set-tags.outputs.polkadot_commit }}
-          DOCKER_TAG="purestake/polkadot-para-tests:sha-$POLKADOT_COMMIT"
+          DOCKER_TAG="paritytech/polkadot-para-tests:sha-$POLKADOT_COMMIT"
           POLKADOT_EXISTS=$(docker manifest inspect $DOCKER_TAG > /dev/null && \
             echo "true" || echo "false")
           if [[ "$POLKADOT_EXISTS" == "false" ]]; then
@@ -389,7 +389,7 @@ jobs:
           #### Retrieving docker image as base to run tests
           POLKADOT_REPO=${{ needs.set-tags.outputs.polkadot_repo }}
           POLKADOT_COMMIT=${{ needs.set-tags.outputs.polkadot_commit }}
-          DOCKER_TAG="purestake/polkadot-para-tests:sha-$POLKADOT_COMMIT"
+          DOCKER_TAG="paritytech/polkadot-para-tests:sha-$POLKADOT_COMMIT"
 
           CPUS=$(lscpu | egrep '^CPU\(s\)' | grep -o '[0-9]*')
 
@@ -533,7 +533,7 @@ jobs:
 
           POLKADOT_REPO=${{ needs.set-tags.outputs.polkadot_repo }}
           POLKADOT_COMMIT=${{ needs.set-tags.outputs.polkadot_commit }}
-          DOCKER_TAG="purestake/polkadot-para-tests:sha-$POLKADOT_COMMIT"
+          DOCKER_TAG="paritytech/polkadot-para-tests:sha-$POLKADOT_COMMIT"
 
           #### Retrieve binary to avoid para-node script to rely on docker
           mkdir -p build

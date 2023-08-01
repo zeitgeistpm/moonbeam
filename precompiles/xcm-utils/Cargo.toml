@@ -24,9 +24,9 @@ fp-evm = { git = "https://github.com/zeitgeistpm/frontier", branch = "polkadot-v
 pallet-evm = { git = "https://github.com/zeitgeistpm/frontier", branch = "polkadot-v0.9.37-use-paritytech-dependencies", default-features = false, features = [ "forbid-evm-reentrancy" ] }
 
 # Polkadot
-pallet-xcm = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37", default-features = false }
-xcm = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37", default-features = false }
-xcm-executor = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37", default-features = false }
+pallet-xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37", default-features = false }
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37", default-features = false }
 
 [dev-dependencies]
 derive_more = "0.99"
@@ -48,11 +48,11 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.37" }
 
 # Polkadot
-polkadot-parachain = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37" }
-xcm-builder = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37" }
+xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37" }
 
 # ORML
-orml-traits = { git = "https://github.com/purestake/open-runtime-module-library", branch = "moonbeam-polkadot-v0.9.37" }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", branch = "polkadot-v0.9.37" }
 
 [features]
 default = [ "std" ]

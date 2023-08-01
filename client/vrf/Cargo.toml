@@ -24,4 +24,4 @@ session-keys-primitives = { path = "../../primitives/session-keys" }
 nimbus-primitives = { git = "https://github.com/zeitgeistpm/nimbus", branch = "polkadot-v0.9.37-use-paritytech-dependencies" }
 
 # Polkadot
-polkadot-primitives = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37" }

@@ -46,8 +46,8 @@ pallet-author-inherent = { git = "https://github.com/zeitgeistpm/nimbus", branch
 pallet-author-slot-filter = { git = "https://github.com/zeitgeistpm/nimbus", branch = "polkadot-v0.9.37-use-paritytech-dependencies", default-features = false }
 
 # Polkadot
-xcm = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37", default-features = false }
-xcm-executor = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37", default-features = false }
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37", default-features = false }
 
 [features]
 std = [

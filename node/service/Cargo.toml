@@ -123,11 +123,11 @@ nimbus-primitives = { git = "https://github.com/zeitgeistpm/nimbus", branch = "p
 pallet-author-inherent = { git = "https://github.com/zeitgeistpm/nimbus", branch = "polkadot-v0.9.37-use-paritytech-dependencies" }
 
 # Polkadot
-polkadot-cli = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37" }
-polkadot-parachain = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37" }
-polkadot-primitives = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37" }
-polkadot-service = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37" }
-xcm = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37", default-features = false }
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37" }
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37", default-features = false }
 
 # Benchmarking
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
@@ -141,7 +141,7 @@ rand = "0.7.3"
 sc-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 
 # Polkadot dev-dependencies
-polkadot-runtime-common = { git = "https://github.com/purestake/polkadot", branch = "release-v0.9.37" }
+polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.37" }
 
 # Substrate dev-dependencies
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
