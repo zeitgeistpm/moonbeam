@@ -6654,7 +6654,7 @@ dependencies = [
 [[package]]
 name = "nimbus-consensus"
 version = "0.9.0"
-source = "git+https://github.com/zeitgeistpm/nimbus?branch=polkadot-v0.9.38-use-paritytech-dependencies#981f8dea9ecff6ac66d4307aad8752f36926ed37"
+source = "git+https://github.com/zeitgeistpm/nimbus?branch=polkadot-v0.9.38-use-paritytech-dependencies#1c8ba39b656ec708bf7153a79987eba6e72ef9d6"
 dependencies = [
  "async-trait",
  "cumulus-client-consensus-common",
@@ -6685,7 +6685,7 @@ dependencies = [
 [[package]]
 name = "nimbus-primitives"
 version = "0.9.0"
-source = "git+https://github.com/zeitgeistpm/nimbus?branch=polkadot-v0.9.38-use-paritytech-dependencies#981f8dea9ecff6ac66d4307aad8752f36926ed37"
+source = "git+https://github.com/zeitgeistpm/nimbus?branch=polkadot-v0.9.38-use-paritytech-dependencies#1c8ba39b656ec708bf7153a79987eba6e72ef9d6"
 dependencies = [
  "async-trait",
  "frame-benchmarking",
@@ -7117,7 +7117,7 @@ dependencies = [
 [[package]]
 name = "pallet-author-inherent"
 version = "0.9.0"
-source = "git+https://github.com/zeitgeistpm/nimbus?branch=polkadot-v0.9.38-use-paritytech-dependencies#981f8dea9ecff6ac66d4307aad8752f36926ed37"
+source = "git+https://github.com/zeitgeistpm/nimbus?branch=polkadot-v0.9.38-use-paritytech-dependencies#1c8ba39b656ec708bf7153a79987eba6e72ef9d6"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7156,7 +7156,7 @@ dependencies = [
 [[package]]
 name = "pallet-author-slot-filter"
 version = "0.9.0"
-source = "git+https://github.com/zeitgeistpm/nimbus?branch=polkadot-v0.9.38-use-paritytech-dependencies#981f8dea9ecff6ac66d4307aad8752f36926ed37"
+source = "git+https://github.com/zeitgeistpm/nimbus?branch=polkadot-v0.9.38-use-paritytech-dependencies#1c8ba39b656ec708bf7153a79987eba6e72ef9d6"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
