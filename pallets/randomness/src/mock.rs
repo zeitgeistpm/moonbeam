@@ -23,7 +23,6 @@ use frame_support::{
 	weights::Weight,
 };
 use nimbus_primitives::NimbusId;
-use pallet_evm::IdentityAddressMapping;
 use session_keys_primitives::VrfId;
 use sp_core::{H160, H256};
 use sp_runtime::{
@@ -123,6 +122,13 @@ impl crate::GetBabeData<u64, Option<H256>> for BabeDataGetter {
 	}
 }
 
+pub struct DummyAddressMapping;
+impl<AccountId: From<H160>> crate::AddressMapping<AccountId> for DummyAddressMapping {
+    fn into_account_id(address: sp_core::H160) -> AccountId {
+        address.into()
+    }
+}
+
 parameter_types! {
 	pub const Deposit: u128 = 10;
 	pub const MaxRandomWords: u8 = 1;
@@ -131,7 +137,7 @@ parameter_types! {
 }
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type AddressMapping = IdentityAddressMapping;
+	type AddressMapping = DummyAddressMapping;
 	type Currency = Balances;
 	type BabeDataGetter = BabeDataGetter;
 	type VrfKeyLookup = AuthorMapping;

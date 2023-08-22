@@ -29,7 +29,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use nimbus_primitives::{digests::CompatibleDigestItem as NimbusDigest, NimbusId};
-use pallet_evm::AddressMapping;
+use crate::AddressMapping;
 use parity_scale_codec::alloc::string::ToString;
 use parity_scale_codec::Decode;
 use scale_info::prelude::string::String;
