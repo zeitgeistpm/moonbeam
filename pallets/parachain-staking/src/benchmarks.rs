@@ -1171,8 +1171,8 @@ benchmarks! {
 		let x in 0..(<<T as Config>::MaxTopDelegationsPerCandidate as Get<u32>>::get()
 		+ <<T as Config>::MaxBottomDelegationsPerCandidate as Get<u32>>::get());
 		let y in 0..<<T as Config>::MaxTopDelegationsPerCandidate as Get<u32>>::get()
-		+ <<T as Config>::MaxBottomDelegationsPerCandidate as Get<u32>>::get();
-		let z in 0..<<T as Config>::MaxDelegationsPerDelegator as Get<u32>>::get();
+		+ <<T as Config>::MaxBottomDelegationsPerCandidate as Get<u32>>::get() - 1;
+		let z in 0..<<T as Config>::MaxDelegationsPerDelegator as Get<u32>>::get() - 1;
 
 		use crate::auto_compound::AutoCompoundDelegations;
 
@@ -1240,7 +1240,7 @@ benchmarks! {
 		Pallet::<T>::delegate_with_auto_compound(
 			RawOrigin::Signed(prime_delegator.clone()).into(),
 			prime_candidate.clone(),
-			min_delegator_stake,
+			min_delegator_stake * 2u32.into(),
 			Percent::from_percent(50),
 			x,
 			y,
