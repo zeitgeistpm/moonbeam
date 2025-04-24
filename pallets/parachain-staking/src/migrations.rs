@@ -18,6 +18,9 @@ use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
 
 use crate::*;
 
+#[cfg(feature = "try-runtime")]
+use sp_std::vec::Vec;
+
 #[derive(
 	Clone,
 	PartialEq,
