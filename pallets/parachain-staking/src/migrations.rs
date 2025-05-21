@@ -124,6 +124,25 @@ where
 	}
 }
 
+pub struct RemoveAtStake<T: Config>(core::marker::PhantomData<T>);
+
+impl<T> OnRuntimeUpgrade for RemoveAtStake<T>
+where
+	T: Config,
+	BlockNumberFor<T>: From<u32> + Into<u64>,
+{
+	fn on_runtime_upgrade() -> frame_support::pallet_prelude::Weight {
+		let round = crate::Round::<T>::get();
+
+		let multiremoval_res = crate::AtStake::<T>::clear_prefix(&round.current, u32::MAX, None);
+		log::info!("RemoveAtStake: Multiremoval_res: maybe_cursor {:?}, backend: {:?}, unique: {:?}, loops: {:?}", multiremoval_res.maybe_cursor, multiremoval_res.backend, multiremoval_res.unique, multiremoval_res.loops);
+		let multiremoval_res = crate::AtStake::<T>::clear_prefix(&round.current - 1, u32::MAX, None);
+		log::info!("RemoveAtStake: Multiremoval_res: maybe_cursor {:?}, backend: {:?}, unique: {:?}, loops: {:?}", multiremoval_res.maybe_cursor, multiremoval_res.backend, multiremoval_res.unique, multiremoval_res.loops);
+		
+		Default::default()
+	}
+}
+
 /// Migrates RoundInfo and add the field first_slot
 pub struct MigrateRoundWithFirstSlot<T: Config>(core::marker::PhantomData<T>);
 
