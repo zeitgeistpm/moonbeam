@@ -161,8 +161,8 @@ where
 			.len();
 		log::info!("ParachainStaking.Round has len {}.", len);
 		ensure!(
-			len == 12 || len == 16,
-			"ParachainStaking.Round should have 12 or 16 bytes length!"
+			len == 24,
+			"ParachainStaking.Round should have 24 bytes length!"
 		);
 
 		Ok(Vec::new())
@@ -178,12 +178,12 @@ where
 			let len = bytes.len();
 			match len {
 				// Migration already done
-				20 => {
+				30 => {
 					log::info!("MigrateRoundWithFirstSlot already applied.");
 					return Default::default();
 				}
 				// Migrate from rt2700
-				12 => match RoundInfoRt2700::decode(&mut &bytes[..]) {
+				24 => match RoundInfoRt2700::decode(&mut &bytes[..]) {
 					Ok(round) => round.into(),
 					Err(e) => panic!("corrupted storage: fail to decode RoundInfoRt2700: {}", e),
 				},
