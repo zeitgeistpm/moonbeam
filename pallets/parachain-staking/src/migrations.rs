@@ -267,11 +267,17 @@ impl<T: Config> MigrateAtStakeAutoCompound<T> {
 	/// Get keys for the `AtStake` storage for the rounds up to `RewardPaymentDelay` rounds ago.
 	/// We migrate only the last unpaid rounds due to the presence of stale entries in `AtStake`
 	/// which significantly increase the PoV size.
-	fn corrupted_keys() -> [Vec<u8>; 2] {
-		[
-			"0xa686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029c000121ee5d57b8f55d830200734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e".as_bytes().to_vec(),
-			"0xa686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029c00014a288ebc3d21fe870200734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e".as_bytes().to_vec(),
-		]
+	fn unpaid_rounds_keys() -> impl Iterator<Item = (RoundIndex, T::AccountId, Vec<u8>)> {
+		let current_round = <Round<T>>::get().current;
+		let max_unpaid_round = current_round.saturating_sub(T::RewardPaymentDelay::get());
+		(max_unpaid_round..=current_round)
+			.into_iter()
+			.flat_map(|round| {
+				<AtStake<T>>::iter_key_prefix(round).map(move |candidate| {
+					let key = <AtStake<T>>::hashed_key_for(round.clone(), candidate.clone());
+					(round, candidate, key)
+				})
+			})
 	}
 }
 impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
@@ -283,14 +289,14 @@ impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
 		);
 		let mut reads = 0u64;
 		let mut writes = 0u64;
-		for key in Self::corrupted_keys() {
-			let old_state: CollatorSnapshot<T::AccountId, BalanceOf<T>> =
+		for (round, candidate, key) in Self::unpaid_rounds_keys() {
+			let old_state: OldCollatorSnapshot<T::AccountId, BalanceOf<T>> =
 				storage::unhashed::get(&key).expect("unable to decode value");
 			reads = reads.saturating_add(1);
 			writes = writes.saturating_add(1);
 			log::info!(
 				target: "MigrateAtStakeAutoCompound",
-				"migration from old format for key {:?}", key
+				"migration from old format round {:?}, candidate {:?}", round, candidate
 			);
 			let new_state = CollatorSnapshot {
 				bond: old_state.bond,
@@ -313,6 +319,15 @@ impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		let current_round = <Round<T>>::get().current;
+		for round in 0..=current_round {
+			<AtStake<T>>::iter_key_prefix(round).for_each(move |candidate| {
+				let key = <AtStake<T>>::hashed_key_for(round.clone(), candidate.clone());
+				if key == "0xa686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029c000121ee5d57b8f55d830200734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e".as_bytes().to_vec() {
+					log::info!("PRE_UPGRADE: Found key: {:?} for round: {:?}, candidate: {:?}", key, round, candidate);
+				}
+			});
+		}
 		Ok(Vec::new())
 	}
 
