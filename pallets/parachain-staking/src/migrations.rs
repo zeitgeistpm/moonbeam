@@ -284,7 +284,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
 		let mut reads = 0u64;
 		let mut writes = 0u64;
 		for key in Self::corrupted_keys() {
-			let old_state: OldCollatorSnapshot<T::AccountId, BalanceOf<T>> =
+			let old_state: CollatorSnapshot<T::AccountId, BalanceOf<T>> =
 				storage::unhashed::get(&key).expect("unable to decode value");
 			reads = reads.saturating_add(1);
 			writes = writes.saturating_add(1);
