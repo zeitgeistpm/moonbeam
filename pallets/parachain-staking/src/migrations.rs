@@ -279,6 +279,18 @@ impl<T: Config> MigrateAtStakeAutoCompound<T> {
 				})
 			})
 	}
+
+	// This function converts a 32 byte AccountId to its byte-array equivalent form.
+	fn account_to_bytes<AccountId>(account: &AccountId) -> Result<[u8; 32], DispatchError>
+	where
+		AccountId: Encode,
+	{
+		let account_vec = account.encode();
+		ensure!(account_vec.len() == 32, "AccountId must be 32 bytes.");
+		let mut bytes = [0u8; 32];
+		bytes.copy_from_slice(&account_vec);
+		Ok(bytes)
+	}
 }
 impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
 	#[allow(deprecated)]
@@ -329,6 +341,11 @@ impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
 				if hex::encode(&key) == "a686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029cffffd3a46cb21b071fe60300734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e" {
 					log::info!("PRE_UPGRADE: Found LAST key: {:?} for round: {:?}, candidate: {:?}", key, round, candidate);
 				}
+				let suspicious_candidate: [u8; 32] = hex_literal::hex!["02e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e"].into();
+				let actual_candidate: [u8; 32] = Self::account_to_bytes(&candidate).unwrap();
+				if actual_candidate == suspicious_candidate {
+					log::info!("PRE_UPGRADE: Found candidate: {:?} for key: {:?}", candidate.clone(), hex::encode(&key));
+				}
 			});
 		}
 		Ok(Vec::new())
@@ -339,3 +356,8 @@ impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
 		Ok(())
 	}
 }
+
+/*
+[2025-05-22T12:45:54Z INFO  pallet_parachain_staking::migrations] PRE_UPGRADE: Found FIRST key: [166, 134, 163, 4, 61, 10, 220, 242, 250, 101, 94, 87, 188, 89, 90, 120, 242, 234, 69, 34, 86, 202, 207, 173, 241, 59, 17, 90, 148, 196, 2, 156, 0, 1, 33, 238, 93, 87, 184, 245, 93, 131, 2, 0, 115, 77, 59, 140, 233, 194, 51, 72, 2, 231, 7, 0, 230, 57, 132, 16, 80, 6, 223, 224, 89, 48, 78, 229, 168, 77, 212, 117, 147, 215, 228, 147, 190, 24, 19, 72, 146, 172, 102, 94] for round: 164701, candidate: 02e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e (5C8WajQx...)
+[2025-05-22T12:45:56Z INFO  pallet_parachain_staking::migrations] PRE_UPGRADE: Found LAST key: [166, 134, 163, 4, 61, 10, 220, 242, 250, 101, 94, 87, 188, 89, 90, 120, 242, 234, 69, 34, 86, 202, 207, 173, 241, 59, 17, 90, 148, 196, 2, 156, 255, 255, 211, 164, 108, 178, 27, 7, 31, 230, 3, 0, 115, 77, 59, 140, 233, 194, 51, 72, 2, 231, 7, 0, 230, 57, 132, 16, 80, 6, 223, 224, 89, 48, 78, 229, 168, 77, 212, 117, 147, 215, 228, 147, 190, 24, 19, 72, 146, 172, 102, 94] for round: 255519, candidate: 02e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e (5C8WajQx...)
+*/

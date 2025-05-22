@@ -9,6 +9,7 @@ version = "3.0.0"
 log = { workspace = true }
 serde = { workspace = true }
 hex = { workspace = true }
+hex-literal = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true, optional = true }
