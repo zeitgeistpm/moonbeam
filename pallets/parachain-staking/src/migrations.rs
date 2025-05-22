@@ -280,7 +280,7 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 		// removed to avoid the risk to removing the snapshot with outstanding errors.
 		<AtStake<T>>::iter_keys()
 			.filter(|(round, _)| {
-				max_unpaid_round <= round
+				&max_unpaid_round <= round
 					&& !<Points<T>>::contains_key(round)
 					&& !<DelayedPayouts<T>>::contains_key(round)
 			})
