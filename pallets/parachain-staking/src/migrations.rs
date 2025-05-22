@@ -128,26 +128,6 @@ where
 pub struct MigrateRoundWithFirstSlot<T: Config>(core::marker::PhantomData<T>);
 
 #[derive(Decode)]
-struct RoundInfoRt2800 {
-	/// Current round index
-	pub current: RoundIndex,
-	/// The first block of the current round
-	pub first: u64,
-	/// The length of the current round in number of blocks
-	pub length: u32,
-}
-impl<BlockNumber: From<u32>> From<RoundInfoRt2800> for RoundInfo<BlockNumber> {
-	fn from(round: RoundInfoRt2800) -> Self {
-		Self {
-			current: round.current,
-			first: (round.first as u32).into(),
-			length: round.length,
-			first_slot: 0,
-		}
-	}
-}
-
-#[derive(Decode)]
 struct RoundInfoRt2700 {
 	/// Current round index
 	pub current: RoundIndex,
@@ -180,8 +160,8 @@ where
 			.expect("ParachainStaking.Round should exist!")
 			.len();
 		ensure!(
-			len == 12 || len == 16,
-			"ParachainStaking.Round should have 12 or 16 bytes length!"
+			len == 16,
+			"ParachainStaking.Round should have 16 bytes length!"
 		);
 
 		Ok(Vec::new())
@@ -201,13 +181,8 @@ where
 					log::info!("MigrateRoundWithFirstSlot already applied.");
 					return Default::default();
 				}
-				// Migrate from rt2800
-				16 => match RoundInfoRt2800::decode(&mut &bytes[..]) {
-					Ok(round) => round.into(),
-					Err(e) => panic!("corrupted storage: fail to decode RoundInfoRt2800: {}", e),
-				},
 				// Migrate from rt2700
-				12 => match RoundInfoRt2700::decode(&mut &bytes[..]) {
+				16 => match RoundInfoRt2700::decode(&mut &bytes[..]) {
 					Ok(round) => round.into(),
 					Err(e) => panic!("corrupted storage: fail to decode RoundInfoRt2700: {}", e),
 				},
