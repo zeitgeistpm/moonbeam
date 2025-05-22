@@ -255,3 +255,107 @@ mod tests {
 		);
 	}
 }
+
+use sp_std::collections::btree_set::BTreeSet;
+
+/// Removes old entries for paid rounds from the `AtStake` storage item.
+pub struct RemovePaidRoundsFromAtStake<T>(PhantomData<T>);
+impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
+	fn on_runtime_upgrade() -> Weight {
+		let mut reads = 0u64;
+		let mut writes = 0u64;
+		let max_unpaid_round = <Round<T>>::get()
+			.current
+			.saturating_sub(T::RewardPaymentDelay::get());
+
+		log::info!(
+			target: "RemovePaidRoundsFromAtStake",
+			"running migration to remove entries for paid rounds < {:?}",
+			max_unpaid_round,
+		);
+
+		// Remove all the keys that are older than the last possible unpaid round. As an additional
+		// check we also verify that the `Points` & `DelayedPayouts` storage item have already been
+		// removed to avoid the risk to removing the snapshot with outstanding errors.
+		<AtStake<T>>::iter_keys()
+			.filter(|(round, _)| {
+				round < &max_unpaid_round
+					&& !<Points<T>>::contains_key(round)
+					&& !<DelayedPayouts<T>>::contains_key(round)
+			})
+			.map(|(round, _)| round)
+			.collect::<BTreeSet<_>>()
+			.iter()
+			.for_each(|round| {
+				writes = writes.saturating_add(1);
+				log::info!(target: "RemovePaidRoundsFromAtStake", "removing round {:?}", round);
+				let multiremoval_res = <AtStake<T>>::clear_prefix(round, 100_000u32, None);
+				log::info!(target: "RemovePaidRoundsFromAtStake", "MultiRemovalResult backend: {:?}, unique: {:?}, loops: {:?}", multiremoval_res.backend, multiremoval_res.unique, multiremoval_res.loops);
+			});
+
+		T::DbWeight::get().reads_writes(reads, writes)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		let max_unpaid_round = <Round<T>>::get()
+			.current
+			.saturating_sub(T::RewardPaymentDelay::get());
+
+		let rounds_to_keep = <AtStake<T>>::iter_keys()
+			.filter(|(round, _)| {
+				if round >= &max_unpaid_round {
+					true
+				} else {
+					let points_exist = <Points<T>>::contains_key(round);
+					let delayed_payouts_exist = <DelayedPayouts<T>>::contains_key(round);
+					if points_exist {
+						log::info!(
+							target: "RemovePaidRoundsFromAtStake",
+							"Points storage still exists for round {:?}, max_unpaid_round {:?}, \
+							entry will not be removed",
+							round,
+							max_unpaid_round
+						);
+					};
+					if delayed_payouts_exist {
+						log::info!(
+							target: "RemovePaidRoundsFromAtStake",
+							"DelayedPayouts storage still exists for round {:?}, max_unpaid_round {:?}, \
+							entry will not be removed",
+							round,
+							max_unpaid_round
+						);
+					};
+					points_exist || delayed_payouts_exist
+				}
+			})
+			.map(|(round, _)| round)
+			.collect::<BTreeSet<_>>();
+		Ok(rounds_to_keep.encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		let prev_rounds_kept: BTreeSet<RoundIndex> =
+			parity_scale_codec::Decode::decode(&mut &state[..])
+				.map_err(|_| sp_runtime::TryRuntimeError::Other("Failed to decode old state"))?;
+		let max_unpaid_round = <Round<T>>::get()
+			.current
+			.saturating_sub(T::RewardPaymentDelay::get());
+		let rounds_kept = <AtStake<T>>::iter_keys()
+			.map(|(round, _)| {
+				assert!(
+					round >= max_unpaid_round,
+					"unexpected stale round storage item, max_unpaid_round={:?}, got={:?}",
+					max_unpaid_round,
+					round
+				);
+				round
+			})
+			.collect::<BTreeSet<_>>();
+
+		assert_eq!(rounds_kept, prev_rounds_kept);
+		Ok(())
+	}
+}
