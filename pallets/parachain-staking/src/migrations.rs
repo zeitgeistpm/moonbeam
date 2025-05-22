@@ -159,7 +159,6 @@ where
 		let len = maybe_raw_value
 			.expect("ParachainStaking.Round should exist!")
 			.len();
-		log::info!("ParachainStaking.Round has len {}.", len);
 		ensure!(
 			len == 16,
 			"ParachainStaking.Round should have 16 bytes length!"

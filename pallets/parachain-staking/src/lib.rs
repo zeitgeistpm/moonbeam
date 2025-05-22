@@ -1907,11 +1907,6 @@ pub mod pallet {
 
 			let collator_fee = payout_info.collator_commission;
 			let collator_issuance = collator_fee * payout_info.round_issuance;
-			log::info!(
-				target: "parachain-staking",
-				"BEFORE pay_one_collator_reward paid for round: {:?}",
-				paid_for_round
-			);
 			if let Some((collator, state)) =
 				<AtStake<T>>::iter_prefix(paid_for_round).drain().next()
 			{
@@ -1999,21 +1994,12 @@ pub mod pallet {
 					),
 				);
 
-				log::info!(
-					target: "parachain-staking",
-					"AFTER pay_one_collator_reward",
-				);
-
 				(
 					RewardPayment::Paid,
 					<T as Config>::WeightInfo::pay_one_collator_reward(num_delegators as u32)
 						.saturating_add(extra_weight),
 				)
 			} else {
-				log::info!(
-					target: "parachain-staking",
-					"AFTER pay_one_collator_reward",
-				);
 				// Note that we don't clean up storage here; it is cleaned up in
 				// handle_delayed_payouts()
 				(RewardPayment::Finished, Weight::from_parts(0u64, 0))
@@ -2078,11 +2064,6 @@ pub mod pallet {
 				let last_round = now.saturating_sub(1u32);
 				let mut total_per_candidate: BTreeMap<T::AccountId, BalanceOf<T>> = BTreeMap::new();
 				// set this round AtStake to last round AtStake
-				log::info!(
-					target: "parachain-staking",
-					"BEFORE SELECTING TOP CANDIDATES last round: {:?}",
-					last_round
-				);
 				for (account, snapshot) in <AtStake<T>>::iter_prefix(last_round) {
 					collator_count = collator_count.saturating_add(1u32);
 					delegation_count =
@@ -2091,10 +2072,6 @@ pub mod pallet {
 					total_per_candidate.insert(account.clone(), snapshot.total);
 					<AtStake<T>>::insert(now, account, snapshot);
 				}
-				log::info!(
-					target: "parachain-staking",
-					"AFTER SELECTING TOP CANDIDATES",
-				);
 				// `SelectedCandidates` remains unchanged from last round
 				// emit CollatorChosen event for tools that use this event
 				for candidate in <SelectedCandidates<T>>::get() {
@@ -2327,21 +2304,12 @@ pub mod pallet {
 			let prev = cur - 1;
 
 			let mut collators_at_stake_count = 0u32;
-			log::info!(
-				target: "parachain-staking",
-				"BEFORE mark_collators_as_inactive prev: {:?}",
-				prev
-			);
 			for (account, _) in <AtStake<T>>::iter_prefix(prev) {
 				collators_at_stake_count = collators_at_stake_count.saturating_add(1u32);
 				if <AwardedPts<T>>::get(prev, &account).is_zero() {
 					<WasInactive<T>>::insert(prev, account, ());
 				}
 			}
-			log::info!(
-				target: "parachain-staking",
-				"AFTER mark_collators_as_inactive",
-			);
 
 			<T as Config>::WeightInfo::mark_collators_as_inactive(collators_at_stake_count)
 		}
