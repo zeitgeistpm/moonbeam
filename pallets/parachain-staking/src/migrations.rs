@@ -256,45 +256,63 @@ mod tests {
 	}
 }
 
-use sp_std::collections::btree_set::BTreeSet;
+// use sp_std::collections::btree_set::BTreeSet;
+#[allow(deprecated)]
+use crate::types::deprecated::CollatorSnapshot as OldCollatorSnapshot;
+use sp_runtime::Percent;
 
-/// Removes old entries for paid rounds from the `AtStake` storage item.
-pub struct RemovePaidRoundsFromAtStake<T>(PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
+/// Migrate `AtStake` storage item to include auto-compound value for unpaid rounds.
+pub struct MigrateAtStakeAutoCompound<T>(PhantomData<T>);
+impl<T: Config> MigrateAtStakeAutoCompound<T> {
+	/// Get keys for the `AtStake` storage for the rounds up to `RewardPaymentDelay` rounds ago.
+	/// We migrate only the last unpaid rounds due to the presence of stale entries in `AtStake`
+	/// which significantly increase the PoV size.
+	fn unpaid_rounds_keys() -> impl Iterator<Item = (RoundIndex, T::AccountId, Vec<u8>)> {
+		let current_round = <Round<T>>::get().current;
+		let max_unpaid_round = current_round.saturating_sub(T::RewardPaymentDelay::get());
+		(max_unpaid_round..=current_round)
+			.into_iter()
+			.flat_map(|round| {
+				<AtStake<T>>::iter_key_prefix(round).map(move |candidate| {
+					let key = <AtStake<T>>::hashed_key_for(round.clone(), candidate.clone());
+					(round, candidate, key)
+				})
+			})
+	}
+}
+impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
+	#[allow(deprecated)]
 	fn on_runtime_upgrade() -> Weight {
+		log::info!(
+			target: "MigrateAtStakeAutoCompound",
+			"running migration to add auto-compound values"
+		);
 		let mut reads = 0u64;
 		let mut writes = 0u64;
-		let current_round = <Round<T>>::get().current;
-		let max_unpaid_round = current_round
-			.saturating_sub(T::RewardPaymentDelay::get()).saturating_sub(10);
-
-		log::info!(
-			target: "RemovePaidRoundsFromAtStake",
-			"running migration to remove entries for paid rounds from {:?} to {:?}",
-			current_round,
-			max_unpaid_round,
-		);
-
-		// Remove all entries for rounds after the max unpaid round. As an additional
-		// check we also verify that the `Points` & `DelayedPayouts` storage item have already been
-		// removed to avoid the risk to removing the snapshot with outstanding errors.
-		<AtStake<T>>::iter_keys()
-			.filter(|(round, _)| {
-				&max_unpaid_round <= round
-					&& !<Points<T>>::contains_key(round)
-					&& !<DelayedPayouts<T>>::contains_key(round)
-			})
-			.map(|(round, _)| round)
-			.collect::<BTreeSet<_>>()
-			.iter()
-			.for_each(|round| {
-				writes = writes.saturating_add(1);
-				log::info!(target: "RemovePaidRoundsFromAtStake", "removing round {:?}", round);
-				// remove up to 1000 candidates that did not produce any blocks for
-				// the given round
-				let multiremoval_res = <AtStake<T>>::clear_prefix(round, 1000u32, None);
-				log::info!(target: "RemovePaidRoundsFromAtStake", "MultiRemovalResult backend: {:?}, unique: {:?}, loops: {:?}", multiremoval_res.backend, multiremoval_res.unique, multiremoval_res.loops);
-			});
+		for (round, candidate, key) in Self::unpaid_rounds_keys() {
+			let old_state: OldCollatorSnapshot<T::AccountId, BalanceOf<T>> =
+				storage::unhashed::get(&key).expect("unable to decode value");
+			reads = reads.saturating_add(1);
+			writes = writes.saturating_add(1);
+			log::info!(
+				target: "MigrateAtStakeAutoCompound",
+				"migration from old format round {:?}, candidate {:?}", round, candidate
+			);
+			let new_state = CollatorSnapshot {
+				bond: old_state.bond,
+				delegations: old_state
+					.delegations
+					.into_iter()
+					.map(|d| BondWithAutoCompound {
+						owner: d.owner,
+						amount: d.amount,
+						auto_compound: Percent::zero(),
+					})
+					.collect(),
+				total: old_state.total,
+			};
+			storage::unhashed::put(&key, &new_state);
+		}
 
 		T::DbWeight::get().reads_writes(reads, writes)
 	}
@@ -305,7 +323,7 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		Ok(())
 	}
 }
