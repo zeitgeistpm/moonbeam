@@ -160,8 +160,8 @@ where
 			.expect("ParachainStaking.Round should exist!")
 			.len();
 		ensure!(
-			len == 16,
-			"ParachainStaking.Round should have 16 bytes length!"
+			len == 16 || len == 20,
+			"ParachainStaking.Round should have 16 or 20 bytes (already applied) length!"
 		);
 
 		Ok(Vec::new())
@@ -266,20 +266,21 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 		let mut writes = 0u64;
 		let current_round = <Round<T>>::get().current;
 		let max_unpaid_round = current_round
-			.saturating_sub(T::RewardPaymentDelay::get());
+			.saturating_sub(T::RewardPaymentDelay::get()).saturating_sub(10);
 
 		log::info!(
 			target: "RemovePaidRoundsFromAtStake",
-			"running migration to remove entries for paid rounds < {:?}",
+			"running migration to remove entries for paid rounds from {:?} to {:?}",
+			current_round,
 			max_unpaid_round,
 		);
 
-		// Remove all entries between the max unpaid round and current round. As an additional
+		// Remove all entries for rounds after the max unpaid round. As an additional
 		// check we also verify that the `Points` & `DelayedPayouts` storage item have already been
 		// removed to avoid the risk to removing the snapshot with outstanding errors.
 		<AtStake<T>>::iter_keys()
 			.filter(|(round, _)| {
-				max_unpaid_round <= current_round
+				max_unpaid_round <= round
 					&& !<Points<T>>::contains_key(round)
 					&& !<DelayedPayouts<T>>::contains_key(round)
 			})
