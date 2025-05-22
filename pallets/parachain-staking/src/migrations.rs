@@ -160,8 +160,8 @@ where
 			.expect("ParachainStaking.Round should exist!")
 			.len();
 		ensure!(
-			len == 16,
-			"ParachainStaking.Round should have 16 bytes length!"
+			len == 16 || len == 20,
+			"ParachainStaking.Round should have 16 or 20 bytes (already applied) length!"
 		);
 
 		Ok(Vec::new())
@@ -253,5 +253,71 @@ mod tests {
 			compute_theoretical_first_slot::<u32>(10, 5, 100, 12_000),
 			90,
 		);
+	}
+}
+
+// use sp_std::collections::btree_set::BTreeSet;
+#[allow(deprecated)]
+use crate::types::deprecated::CollatorSnapshot as OldCollatorSnapshot;
+use sp_runtime::Percent;
+
+/// Migrate `AtStake` storage item to include auto-compound value for unpaid rounds.
+pub struct MigrateAtStakeAutoCompound<T>(PhantomData<T>);
+impl<T: Config> MigrateAtStakeAutoCompound<T> {
+	/// Get keys for the `AtStake` storage for the rounds up to `RewardPaymentDelay` rounds ago.
+	/// We migrate only the last unpaid rounds due to the presence of stale entries in `AtStake`
+	/// which significantly increase the PoV size.
+	fn corrupted_keys() -> [Vec<u8>; 2] {
+		[
+			"0xa686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029c000121ee5d57b8f55d830200734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e".as_bytes().to_vec(),
+			"0xa686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029c00014a288ebc3d21fe870200734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e".as_bytes().to_vec(),
+		]
+	}
+}
+impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
+	#[allow(deprecated)]
+	fn on_runtime_upgrade() -> Weight {
+		log::info!(
+			target: "MigrateAtStakeAutoCompound",
+			"running migration to add auto-compound values"
+		);
+		let mut reads = 0u64;
+		let mut writes = 0u64;
+		for key in Self::corrupted_keys() {
+			let old_state: OldCollatorSnapshot<T::AccountId, BalanceOf<T>> =
+				storage::unhashed::get(&key).expect("unable to decode value");
+			reads = reads.saturating_add(1);
+			writes = writes.saturating_add(1);
+			log::info!(
+				target: "MigrateAtStakeAutoCompound",
+				"migration from old format for key {:?}", key
+			);
+			let new_state = CollatorSnapshot {
+				bond: old_state.bond,
+				delegations: old_state
+					.delegations
+					.into_iter()
+					.map(|d| BondWithAutoCompound {
+						owner: d.owner,
+						amount: d.amount,
+						auto_compound: Percent::zero(),
+					})
+					.collect(),
+				total: old_state.total,
+			};
+			storage::unhashed::put(&key, &new_state);
+		}
+
+		T::DbWeight::get().reads_writes(reads, writes)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		Ok(Vec::new())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		Ok(())
 	}
 }
