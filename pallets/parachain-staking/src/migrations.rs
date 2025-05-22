@@ -323,7 +323,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
 		for round in 0..=current_round {
 			<AtStake<T>>::iter_key_prefix(round).for_each(move |candidate| {
 				let key = <AtStake<T>>::hashed_key_for(round.clone(), candidate.clone());
-				if ("0x".to_owned() + &hex::encode(&key)) == "0xa686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029c000121ee5d57b8f55d830200734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e" {
+				if hex::encode(&key) == "a686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029c000121ee5d57b8f55d830200734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e" {
 					log::info!("PRE_UPGRADE: Found key: {:?} for round: {:?}, candidate: {:?}", key, round, candidate);
 				}
 				log::info!("Encoded HEX KEY: {:?}", hex::encode(&key));
