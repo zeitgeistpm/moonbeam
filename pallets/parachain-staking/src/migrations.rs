@@ -333,6 +333,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		let current_round = <Round<T>>::get().current;
 		for round in 0..=current_round {
+			// TODO iterate through all keys and find which values are non decodable, print the key and then look if the result is way below the current era, if yes, remove the value behind the key if it has been rewarded already.
 			<AtStake<T>>::iter_key_prefix(round).for_each(move |candidate| {
 				let key = <AtStake<T>>::hashed_key_for(round.clone(), candidate.clone());
 				// a686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029c ... 000121ee5d57b8f55d8302 ... 00734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e
@@ -345,6 +346,9 @@ impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
 				if hex::encode(&key) == "a686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029cffffd3a46cb21b071fe60300734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e" {
 					log::info!("PRE_UPGRADE 2: Found LAST key: {:?} for round: {:?}, candidate: {:?}", key, round, candidate);
 				}
+				// 1eae8d74a64b403d703f7b9d1b2e9685af9d518bb73820853862aa9e3f070860: 4302
+				// 02e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e: 71251
+				// 86e117eb96374523188d15f1a691dc878d3c34ddc63ff942b6500d26976df341: 626
 				let suspicious_candidate: [u8; 32] = hex_literal::hex!["02e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e"].into();
 				let actual_candidate: [u8; 32] = Self::account_to_bytes(&candidate).unwrap();
 				if actual_candidate == suspicious_candidate {
@@ -361,7 +365,72 @@ impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
 	}
 }
 
-/*
-[2025-05-22T12:45:54Z INFO  pallet_parachain_staking::migrations] PRE_UPGRADE: Found FIRST key: [166, 134, 163, 4, 61, 10, 220, 242, 250, 101, 94, 87, 188, 89, 90, 120, 242, 234, 69, 34, 86, 202, 207, 173, 241, 59, 17, 90, 148, 196, 2, 156, 0, 1, 33, 238, 93, 87, 184, 245, 93, 131, 2, 0, 115, 77, 59, 140, 233, 194, 51, 72, 2, 231, 7, 0, 230, 57, 132, 16, 80, 6, 223, 224, 89, 48, 78, 229, 168, 77, 212, 117, 147, 215, 228, 147, 190, 24, 19, 72, 146, 172, 102, 94] for round: 164701, candidate: 02e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e (5C8WajQx...)
-[2025-05-22T12:45:56Z INFO  pallet_parachain_staking::migrations] PRE_UPGRADE: Found LAST key: [166, 134, 163, 4, 61, 10, 220, 242, 250, 101, 94, 87, 188, 89, 90, 120, 242, 234, 69, 34, 86, 202, 207, 173, 241, 59, 17, 90, 148, 196, 2, 156, 255, 255, 211, 164, 108, 178, 27, 7, 31, 230, 3, 0, 115, 77, 59, 140, 233, 194, 51, 72, 2, 231, 7, 0, 230, 57, 132, 16, 80, 6, 223, 224, 89, 48, 78, 229, 168, 77, 212, 117, 147, 215, 228, 147, 190, 24, 19, 72, 146, 172, 102, 94] for round: 255519, candidate: 02e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e (5C8WajQx...)
-*/
+use frame_support::traits::TryDecodeEntireStorage;
+
+/// Removes old entries for paid rounds from the `AtStake` storage item.
+pub struct RemovePaidRoundsFromAtStake<T>(PhantomData<T>);
+impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
+	#[allow(deprecated)]
+	fn on_runtime_upgrade() -> Weight {
+		use sp_std::collections::btree_set::BTreeSet;
+
+		let mut reads = 0u64;
+		let mut writes = 0u64;
+		let max_unpaid_round = <Round<T>>::get()
+			.current
+			.saturating_sub(T::RewardPaymentDelay::get());
+
+		log::info!(
+			target: "RemovePaidRoundsFromAtStake",
+			"running migration to remove entries for paid rounds < {:?}",
+			max_unpaid_round,
+		);
+
+		// Remove all the keys that are older than the last possible unpaid round. As an additional
+		// check we also verify that the `Points` & `DelayedPayouts` storage item have already been
+		// removed to avoid the risk to removing the snapshot with outstanding errors.
+		<AtStake<T>>::iter_keys()
+			.filter(|(round, candidate)| {
+				round < &max_unpaid_round
+					&& !<Points<T>>::contains_key(round)
+					&& !<DelayedPayouts<T>>::contains_key(round)
+					&& <AtStake<T>>::try_get(round, candidate).is_err()
+			})
+			.map(|(round, candidate)| (round, candidate))
+			.collect::<BTreeSet<_>>()
+			.iter()
+			.for_each(|(round, candidate)| {
+				writes = writes.saturating_add(1);
+				log::info!(target: "RemovePaidRoundsFromAtStake", "removing round {:?} and candidate {:?}", round, candidate);
+				<AtStake<T>>::remove(round, candidate);
+			});
+
+		T::DbWeight::get().reads_writes(reads, writes)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		match <AtStake<T>>::try_decode_entire_state() {
+			Ok(bytes_decoded) => {
+				log::info!(target: "RemovePaidRoundsFromAtStake", "PRE_UPGRADE: AtStake storage is decodable. bytes decoded length: {:?}", bytes_decoded);
+			}
+			Err(decode_error_vec) => {
+				log::error!(target: "RemovePaidRoundsFromAtStake", "PRE_UPGRADE: AtStake storage is not decodable: {:#?}", decode_error_vec);
+			}
+		}
+		Ok(Vec::new())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		match <AtStake<T>>::try_decode_entire_state() {
+			Ok(bytes_decoded) => {
+				log::info!(target: "RemovePaidRoundsFromAtStake", "POST_UPGRADE: AtStake storage is decodable. bytes decoded length: {:?}", bytes_decoded);
+			}
+			Err(decode_error_vec) => {
+				log::error!(target: "RemovePaidRoundsFromAtStake", "POST_UPGRADE: AtStake storage is not decodable: {:#?}", decode_error_vec);
+			}
+		}
+		Ok(())
+	}
+}
