@@ -284,40 +284,40 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 		// Remove all the keys that are older than the last possible unpaid round. As an additional
 		// check we also verify that the `Points` & `DelayedPayouts` storage item have already been
 		// removed to avoid the risk to removing the snapshot with outstanding errors.
-		(97822..=97825)
-			.chain(141896..=283238)
-			.into_iter()
-			.for_each(|round| {
-				if round < max_unpaid_round {
-					<AtStake<T>>::iter_key_prefix(round)
-						.filter(|candidate| {
-							reads = reads.saturating_add(1);
-							let raw_key = <AtStake<T>>::hashed_key_for(round, candidate);
-							if let Some(bytes) = unhashed::get_raw(&raw_key) {
-								let len = bytes.len();
-								match len {
-									81usize => true,
-									33usize => false,
-									_ => {
-										log::error!(
-											target: "RemovePaidRoundsFromAtStake",
-											"parachainStaking.AtStake invalid length: {} bytes",
-											len
-										);
-										false
-									},
-								}
-							} else {
-								false
-							}
-						})
-						.for_each(|candidate| {
-							writes = writes.saturating_add(1);
-							undecodable_values_len += 1;
-							<AtStake<T>>::remove(round, candidate);
-						});
-				}
-			});
+		// (97822..=97825)
+		// 	.chain(141896..=283238)
+		// 	.into_iter()
+		// 	.for_each(|round| {
+		// 		if round < max_unpaid_round {
+		// 			<AtStake<T>>::iter_key_prefix(round)
+		// 				.filter(|candidate| {
+		// 					reads = reads.saturating_add(1);
+		// 					let raw_key = <AtStake<T>>::hashed_key_for(round, candidate);
+		// 					if let Some(bytes) = unhashed::get_raw(&raw_key) {
+		// 						let len = bytes.len();
+		// 						match len {
+		// 							81usize => true,
+		// 							33usize => false,
+		// 							_ => {
+		// 								log::error!(
+		// 									target: "RemovePaidRoundsFromAtStake",
+		// 									"parachainStaking.AtStake invalid length: {} bytes",
+		// 									len
+		// 								);
+		// 								false
+		// 							},
+		// 						}
+		// 					} else {
+		// 						false
+		// 					}
+		// 				})
+		// 				.for_each(|candidate| {
+		// 					writes = writes.saturating_add(1);
+		// 					undecodable_values_len += 1;
+		// 					<AtStake<T>>::remove(round, candidate);
+		// 				});
+		// 		}
+		// 	});
 
 		log::info!(target: "RemovePaidRoundsFromAtStake", "Removed {:?} undecodable values.", undecodable_values_len);
 
@@ -351,7 +351,7 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 			});
 		log::info!(
 			target: "RemovePaidRoundsFromAtStake",
-			"POST_UPGRADE: Undecodable values:\n{:#?}",
+			"POST_UPGRADE: Undecodable values:\n{:?}",
 			undecodable_values,
 		);
 		log::info!(target: "RemovePaidRoundsFromAtStake", "POST_UPGRADE: undecodable values len {:?}.", undecodable_values.len());
