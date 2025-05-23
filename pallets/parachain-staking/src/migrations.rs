@@ -159,6 +159,11 @@ where
 		let len = maybe_raw_value
 			.expect("ParachainStaking.Round should exist!")
 			.len();
+		log::info!(
+			target: "MigrateRoundWithFirstSlot",
+			"ParachainStaking.Round length: {} bytes",
+			len
+		);
 		ensure!(
 			len == 16 || len == 20,
 			"ParachainStaking.Round should have 16 or 20 bytes (already applied) length!"
@@ -256,121 +261,11 @@ mod tests {
 	}
 }
 
-// use sp_std::collections::btree_set::BTreeSet;
-#[allow(deprecated)]
-use crate::types::deprecated::CollatorSnapshot as OldCollatorSnapshot;
-use sp_runtime::Percent;
-
-/// Migrate `AtStake` storage item to include auto-compound value for unpaid rounds.
-pub struct MigrateAtStakeAutoCompound<T>(PhantomData<T>);
-impl<T: Config> MigrateAtStakeAutoCompound<T> {
-	/// Get keys for the `AtStake` storage for the rounds up to `RewardPaymentDelay` rounds ago.
-	/// We migrate only the last unpaid rounds due to the presence of stale entries in `AtStake`
-	/// which significantly increase the PoV size.
-	fn unpaid_rounds_keys() -> impl Iterator<Item = (RoundIndex, T::AccountId, Vec<u8>)> {
-		let current_round = <Round<T>>::get().current;
-		let max_unpaid_round = current_round.saturating_sub(T::RewardPaymentDelay::get());
-		(max_unpaid_round..=current_round)
-			.into_iter()
-			.flat_map(|round| {
-				<AtStake<T>>::iter_key_prefix(round).map(move |candidate| {
-					let key = <AtStake<T>>::hashed_key_for(round.clone(), candidate.clone());
-					(round, candidate, key)
-				})
-			})
-	}
-
-	// This function converts a 32 byte AccountId to its byte-array equivalent form.
-	fn account_to_bytes<AccountId>(account: &AccountId) -> Result<[u8; 32], DispatchError>
-	where
-		AccountId: Encode,
-	{
-		let account_vec = account.encode();
-		ensure!(account_vec.len() == 32, "AccountId must be 32 bytes.");
-		let mut bytes = [0u8; 32];
-		bytes.copy_from_slice(&account_vec);
-		Ok(bytes)
-	}
-}
-impl<T: Config> OnRuntimeUpgrade for MigrateAtStakeAutoCompound<T> {
-	#[allow(deprecated)]
-	fn on_runtime_upgrade() -> Weight {
-		log::info!(
-			target: "MigrateAtStakeAutoCompound",
-			"running migration to add auto-compound values"
-		);
-		let mut reads = 0u64;
-		let mut writes = 0u64;
-		for (round, candidate, key) in Self::unpaid_rounds_keys() {
-			let old_state: OldCollatorSnapshot<T::AccountId, BalanceOf<T>> =
-				storage::unhashed::get(&key).expect("unable to decode value");
-			reads = reads.saturating_add(1);
-			writes = writes.saturating_add(1);
-			log::info!(
-				target: "MigrateAtStakeAutoCompound",
-				"migration from old format round {:?}, candidate {:?}", round, candidate
-			);
-			let new_state = CollatorSnapshot {
-				bond: old_state.bond,
-				delegations: old_state
-					.delegations
-					.into_iter()
-					.map(|d| BondWithAutoCompound {
-						owner: d.owner,
-						amount: d.amount,
-						auto_compound: Percent::zero(),
-					})
-					.collect(),
-				total: old_state.total,
-			};
-			storage::unhashed::put(&key, &new_state);
-		}
-
-		T::DbWeight::get().reads_writes(reads, writes)
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		let current_round = <Round<T>>::get().current;
-		for round in 0..=current_round {
-			// TODO iterate through all keys and find which values are non decodable, print the key and then look if the result is way below the current era, if yes, remove the value behind the key if it has been rewarded already.
-			<AtStake<T>>::iter_key_prefix(round).for_each(move |candidate| {
-				let key = <AtStake<T>>::hashed_key_for(round.clone(), candidate.clone());
-				// a686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029c ... 000121ee5d57b8f55d8302 ... 00734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e
-				if hex::encode(&key) == "a686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029c000121ee5d57b8f55d830200734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e" {
-					log::info!("PRE_UPGRADE 0: Found FIRST key: {:?} for round: {:?}, candidate: {:?}", key, round, candidate);
-				}
-				if hex::encode(&key) == "a686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029ce187f8b4cc2a47951dc30300734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e" {
-					log::info!("PRE_UPGRADE 1: Found LAST key: {:?} for round: {:?}, candidate: {:?}", key, round, candidate);
-				}
-				if hex::encode(&key) == "a686a3043d0adcf2fa655e57bc595a78f2ea452256cacfadf13b115a94c4029cffffd3a46cb21b071fe60300734d3b8ce9c2334802e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e" {
-					log::info!("PRE_UPGRADE 2: Found LAST key: {:?} for round: {:?}, candidate: {:?}", key, round, candidate);
-				}
-				// 1eae8d74a64b403d703f7b9d1b2e9685af9d518bb73820853862aa9e3f070860: 4302
-				// 02e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e: 71251
-				// 86e117eb96374523188d15f1a691dc878d3c34ddc63ff942b6500d26976df341: 626
-				let suspicious_candidate: [u8; 32] = hex_literal::hex!["02e70700e63984105006dfe059304ee5a84dd47593d7e493be18134892ac665e"].into();
-				let actual_candidate: [u8; 32] = Self::account_to_bytes(&candidate).unwrap();
-				if actual_candidate == suspicious_candidate {
-					// log::info!("PRE_UPGRADE: Found candidate: {:?} for key: {:?}", candidate.clone(), hex::encode(&key));
-				}
-			});
-		}
-		Ok(Vec::new())
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		Ok(())
-	}
-}
-
 use sp_std::collections::btree_set::BTreeSet;
 
 /// Removes old entries for paid rounds from the `AtStake` storage item.
 pub struct RemovePaidRoundsFromAtStake<T>(PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
-	#[allow(deprecated)]
 	fn on_runtime_upgrade() -> Weight {
 		let mut reads = 0u64;
 		let mut writes = 0u64;
