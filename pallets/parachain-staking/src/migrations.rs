@@ -165,8 +165,8 @@ where
 			len
 		);
 		ensure!(
-			len == 16 || len == 20,
-			"ParachainStaking.Round should have 16 or 20 bytes (already applied) length!"
+			len == 16 || len == 24,
+			"ParachainStaking.Round should have 16 or 24 bytes (already applied) length!"
 		);
 
 		Ok(Vec::new())
@@ -182,7 +182,7 @@ where
 			let len = bytes.len();
 			match len {
 				// Migration already done
-				20 => {
+				24 => {
 					log::info!("MigrateRoundWithFirstSlot already applied.");
 					return Default::default();
 				}
@@ -288,12 +288,19 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 			.chain(141896..=283238)
 			.into_iter()
 			.for_each(|round| {
-				if round < max_unpaid_round
-					&& !<Points<T>>::contains_key(round)
-					&& !<DelayedPayouts<T>>::contains_key(round)
-				{
+				if round < max_unpaid_round {
 					<AtStake<T>>::iter_key_prefix(round)
-						.filter(|candidate| <AtStake<T>>::try_get(round, candidate).is_err())
+						.filter(|candidate| {
+							reads = reads.saturating_add(1);
+							let raw_key = <AtStake<T>>::hashed_key_for(round, candidate);
+							if let Some(bytes) = unhashed::get_raw(&raw_key) {
+								let len = bytes.len();
+								log::info!(target: "RemovePaidRoundsFromAtStake", "ParachainStaking.AtStake length: {} bytes", len);
+								true
+							} else {
+								false
+							}
+						})
 						.map(|candidate| (round, candidate))
 						.collect::<BTreeSet<_>>()
 						.iter()
