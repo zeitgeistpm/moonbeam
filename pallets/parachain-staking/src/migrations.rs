@@ -295,8 +295,18 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 							let raw_key = <AtStake<T>>::hashed_key_for(round, candidate);
 							if let Some(bytes) = unhashed::get_raw(&raw_key) {
 								let len = bytes.len();
-								log::info!(target: "RemovePaidRoundsFromAtStake", "ParachainStaking.AtStake length: {} bytes", len);
-								true
+								match len {
+									81usize => true,
+									33usize => false,
+									_ => {
+										log::error!(
+											target: "RemovePaidRoundsFromAtStake",
+											"parachainStaking.AtStake invalid length: {} bytes",
+											len
+										);
+										false
+									},
+								}
 							} else {
 								false
 							}
