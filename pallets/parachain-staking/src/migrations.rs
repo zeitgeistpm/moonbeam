@@ -270,7 +270,7 @@ pub struct RemoveUndecodablesFromAtStake<T, Undecodables>(PhantomData<T>, Undeco
 impl<T, Undecodables> OnRuntimeUpgrade for RemoveUndecodablesFromAtStake<T, Undecodables>
 where
 	T: Config,
-	Undecodables: Get<Vec<[u8; 32]>>,
+	Undecodables: Get<Vec<[u8; 84]>>,
 {
 	fn on_runtime_upgrade() -> Weight {
 		let mut reads = 0u64;
