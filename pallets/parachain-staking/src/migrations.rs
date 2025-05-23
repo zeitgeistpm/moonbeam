@@ -410,27 +410,11 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		match <AtStake<T>>::try_decode_entire_state() {
-			Ok(bytes_decoded) => {
-				log::info!(target: "RemovePaidRoundsFromAtStake", "PRE_UPGRADE: AtStake storage is decodable. bytes decoded length: {:?}", bytes_decoded);
-			}
-			Err(decode_error_vec) => {
-				log::error!(target: "RemovePaidRoundsFromAtStake", "PRE_UPGRADE: AtStake storage is not decodable: {:#?}", decode_error_vec);
-			}
-		}
 		Ok(Vec::new())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		match <AtStake<T>>::try_decode_entire_state() {
-			Ok(bytes_decoded) => {
-				log::info!(target: "RemovePaidRoundsFromAtStake", "POST_UPGRADE: AtStake storage is decodable. bytes decoded length: {:?}", bytes_decoded);
-			}
-			Err(decode_error_vec) => {
-				log::error!(target: "RemovePaidRoundsFromAtStake", "POST_UPGRADE: AtStake storage is not decodable: {:#?}", decode_error_vec);
-			}
-		}
 		Ok(())
 	}
 }
