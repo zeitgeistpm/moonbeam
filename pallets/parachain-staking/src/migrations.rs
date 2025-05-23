@@ -311,10 +311,7 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 								false
 							}
 						})
-						.map(|candidate| (round, candidate))
-						.collect::<BTreeSet<_>>()
-						.iter()
-						.for_each(|(round, candidate)| {
+						.for_each(|candidate| {
 							writes = writes.saturating_add(1);
 							undecodable_values_len += 1;
 							<AtStake<T>>::remove(round, candidate);
@@ -354,10 +351,10 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 			});
 		log::info!(
 			target: "RemovePaidRoundsFromAtStake",
-			"PRE_UPGRADE: Undecodable values:\n{:#?}",
+			"POST_UPGRADE: Undecodable values:\n{:#?}",
 			undecodable_values,
 		);
-		log::info!(target: "RemovePaidRoundsFromAtStake", "PRE_UPGRADE: undecodable values len {:?}.", undecodable_values.len());
+		log::info!(target: "RemovePaidRoundsFromAtStake", "POST_UPGRADE: undecodable values len {:?}.", undecodable_values.len());
 		Ok(())
 	}
 }
