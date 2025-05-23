@@ -389,20 +389,25 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 		// Remove all the keys that are older than the last possible unpaid round. As an additional
 		// check we also verify that the `Points` & `DelayedPayouts` storage item have already been
 		// removed to avoid the risk to removing the snapshot with outstanding errors.
-		<AtStake<T>>::iter_keys()
-			.filter(|(round, candidate)| {
-				round < &max_unpaid_round
+		(97822..=97825)
+			.chain(141896..=283238)
+			.into_iter()
+			.for_each(|round| {
+				if round < max_unpaid_round
 					&& !<Points<T>>::contains_key(round)
 					&& !<DelayedPayouts<T>>::contains_key(round)
-					&& <AtStake<T>>::try_get(round, candidate).is_err()
-			})
-			.map(|(round, candidate)| (round, candidate))
-			.collect::<BTreeSet<_>>()
-			.iter()
-			.for_each(|(round, candidate)| {
-				writes = writes.saturating_add(1);
-				undecodable_values_len += 1;
-				<AtStake<T>>::remove(round, candidate);
+				{
+					<AtStake<T>>::iter_key_prefix(round)
+						.filter(|candidate| <AtStake<T>>::try_get(round, candidate).is_err())
+						.map(|candidate| (round, candidate))
+						.collect::<BTreeSet<_>>()
+						.iter()
+						.for_each(|(round, candidate)| {
+							writes = writes.saturating_add(1);
+							undecodable_values_len += 1;
+							<AtStake<T>>::remove(round, candidate);
+						});
+				}
 			});
 
 		log::info!(target: "RemovePaidRoundsFromAtStake", "Removed {:?} undecodable values.", undecodable_values_len);
@@ -412,6 +417,11 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		Ok(Vec::new())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		let mut undecodable_values = Vec::new();
 
 		let max_unpaid_round = <Round<T>>::get()
@@ -436,11 +446,6 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 			undecodable_values,
 		);
 		log::info!(target: "RemovePaidRoundsFromAtStake", "PRE_UPGRADE: undecodable values len {:?}.", undecodable_values.len());
-		Ok(Vec::new())
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		Ok(())
 	}
 }
