@@ -261,71 +261,54 @@ mod tests {
 	}
 }
 
+// #[allow(deprecated)]
+// use crate::types::deprecated::CollatorSnapshot as OldCollatorSnapshot;
 use sp_std::collections::btree_set::BTreeSet;
 
 /// Removes old entries for paid rounds from the `AtStake` storage item.
-pub struct RemovePaidRoundsFromAtStake<T>(PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
+pub struct RemoveUndecodablesFromAtStake<T, Undecodables>(PhantomData<T>, Undecodables);
+impl<T, Undecodables> OnRuntimeUpgrade for RemoveUndecodablesFromAtStake<T, Undecodables>
+where
+	T: Config,
+	Undecodables: Get<Vec<[u8; 32]>>,
+{
 	fn on_runtime_upgrade() -> Weight {
 		let mut reads = 0u64;
 		let mut writes = 0u64;
-		let max_unpaid_round = <Round<T>>::get()
-			.current
-			.saturating_sub(T::RewardPaymentDelay::get());
 
 		log::info!(
-			target: "RemovePaidRoundsFromAtStake",
-			"running migration to remove entries for paid rounds < {:?}",
-			max_unpaid_round,
+			target: "RemoveUndecodablesFromAtStake",
+			"running migration to remove entries for undecodable values from AtStake",
 		);
 
-		let mut undecodable_values_len = 0u32;
+		for &key in Undecodables::get().iter() {
+			reads = reads.saturating_add(1);
+			if let Some(bytes) = unhashed::get_raw(&key) {
+				let len = bytes.len();
+				if len == 81usize {
+					unhashed::kill(&key);
+					writes = writes.saturating_add(1);
+				} else {
+					panic!(
+						"corrupted storage: unexpected undecodable value length: {} bytes",
+						len
+					);
+				}
+			}
+		}
 
-		// Remove all the keys that are older than the last possible unpaid round. As an additional
-		// check we also verify that the `Points` & `DelayedPayouts` storage item have already been
-		// removed to avoid the risk to removing the snapshot with outstanding errors.
-		// (97822..=97825)
-		// 	.chain(141896..=283238)
-		// 	.into_iter()
-		// 	.for_each(|round| {
-		// 		if round < max_unpaid_round {
-		// 			<AtStake<T>>::iter_key_prefix(round)
-		// 				.filter(|candidate| {
-		// 					reads = reads.saturating_add(1);
-		// 					let raw_key = <AtStake<T>>::hashed_key_for(round, candidate);
-		// 					if let Some(bytes) = unhashed::get_raw(&raw_key) {
-		// 						let len = bytes.len();
-		// 						match len {
-		// 							81usize => true,
-		// 							33usize => false,
-		// 							_ => {
-		// 								log::error!(
-		// 									target: "RemovePaidRoundsFromAtStake",
-		// 									"parachainStaking.AtStake invalid length: {} bytes",
-		// 									len
-		// 								);
-		// 								false
-		// 							},
-		// 						}
-		// 					} else {
-		// 						false
-		// 					}
-		// 				})
-		// 				.for_each(|candidate| {
-		// 					writes = writes.saturating_add(1);
-		// 					undecodable_values_len += 1;
-		// 					<AtStake<T>>::remove(round, candidate);
-		// 				});
-		// 		}
-		// 	});
-
-		log::info!(target: "RemovePaidRoundsFromAtStake", "Removed {:?} undecodable values.", undecodable_values_len);
+		log::info!(target: "RemoveUndecodablesFromAtStake", "Removed {:?} undecodable values.", writes);
 
 		T::DbWeight::get().reads_writes(reads, writes)
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		for &key in Undecodables::get().iter() {
+			ensure!(unhashed::exists(&key), "Undecodable value doesn't exist");
+		}
+
+		log::info!(target: "RemoveUndecodablesFromAtStake", "PRE_UPGRADE: About to kill undecodable values.");
 		Ok(Vec::new())
 	}
 
@@ -349,11 +332,6 @@ impl<T: Config> OnRuntimeUpgrade for RemovePaidRoundsFromAtStake<T> {
 			.for_each(|(round, candidate)| {
 				undecodable_values.push((round, candidate));
 			});
-		log::info!(
-			target: "RemovePaidRoundsFromAtStake",
-			"POST_UPGRADE: Undecodable values:\n{:?}",
-			undecodable_values,
-		);
 		log::info!(target: "RemovePaidRoundsFromAtStake", "POST_UPGRADE: undecodable values len {:?}.", undecodable_values.len());
 		Ok(())
 	}
