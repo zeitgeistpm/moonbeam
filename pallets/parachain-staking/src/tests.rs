@@ -7296,6 +7296,111 @@ fn no_selected_candidates_defaults_to_last_round_collators() {
 		});
 }
 
+#[allow(deprecated)]
+use crate::types::deprecated::CollatorSnapshot as OldCollatorSnapshot;
+use crate::{BondWithAutoCompound, CollatorSnapshot};
+
+mod before_migration {
+	use super::*;
+	use crate::mock::{AccountId, Balance};
+	use crate::RoundIndex;
+	use frame_support::pallet_prelude::OptionQuery;
+	use frame_support::Twox64Concat;
+
+	#[allow(deprecated)]
+	#[frame_support::storage_alias]
+	pub type AtStake<T: crate::Config> = StorageDoubleMap<
+		crate::Pallet<T>,
+		Twox64Concat,
+		RoundIndex,
+		Twox64Concat,
+		AccountId,
+		OldCollatorSnapshot<AccountId, Balance>,
+		OptionQuery,
+	>;
+}
+
+#[allow(deprecated)]
+#[test]
+fn migrate_old_collator_snapshot_works() {
+	ExtBuilder::default()
+		.with_balances(vec![(1, 30), (2, 30), (3, 30), (4, 30), (5, 30)])
+		.with_candidates(vec![(1, 30), (2, 30), (3, 30), (4, 30), (5, 30)])
+		.build()
+		.execute_with(|| {
+			roll_to_round_begin(1);
+
+			let round_index = 42;
+			let candidate = 1;
+
+			let old_collator_snapshot = OldCollatorSnapshot {
+				bond: 42,
+				delegations: vec![
+					Bond {
+						owner: 1,
+						amount: 10,
+					},
+					Bond {
+						owner: 2,
+						amount: 20,
+					},
+					Bond {
+						owner: 3,
+						amount: 40,
+					},
+				],
+				total: 72,
+			};
+			before_migration::AtStake::<Test>::insert(
+				round_index,
+				candidate,
+				old_collator_snapshot,
+			);
+
+			// Migrate the old snapshot to the new format
+			assert_ok!(ParachainStaking::migrate_old_collator_snapshot(
+				RuntimeOrigin::signed(2),
+				round_index,
+				candidate,
+			));
+
+			let result = <AtStake<Test>>::get(round_index, candidate).unwrap();
+			assert_eq!(
+				result,
+				CollatorSnapshot {
+					bond: 42,
+					delegations: vec![
+						BondWithAutoCompound {
+							owner: 1,
+							amount: 10,
+							auto_compound: Percent::zero(),
+						},
+						BondWithAutoCompound {
+							owner: 2,
+							amount: 20,
+							auto_compound: Percent::zero(),
+						},
+						BondWithAutoCompound {
+							owner: 3,
+							amount: 40,
+							auto_compound: Percent::zero(),
+						},
+					],
+					total: 72,
+				},
+			);
+
+			assert_noop!(
+				ParachainStaking::migrate_old_collator_snapshot(
+					RuntimeOrigin::signed(2),
+					round_index,
+					candidate,
+				),
+				<Error<Test>>::AtStakeCollatorSnapshotAlreadyMigrated
+			);
+		});
+}
+
 #[test]
 fn test_delegator_scheduled_for_revoke_is_rewarded_for_previous_rounds_but_not_for_future() {
 	ExtBuilder::default()

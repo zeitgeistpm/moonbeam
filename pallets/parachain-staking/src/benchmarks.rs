@@ -29,6 +29,28 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::{traits::Zero, Perbill, Percent};
 use sp_std::vec::Vec;
 
+mod before_migration {
+	use super::*;
+	#[allow(deprecated)]
+	pub use crate::types::deprecated::CollatorSnapshot as OldCollatorSnapshot;
+	use crate::BalanceOf;
+	use crate::RoundIndex;
+	use frame_support::pallet_prelude::OptionQuery;
+	use frame_support::Twox64Concat;
+
+	#[allow(deprecated)]
+	#[frame_support::storage_alias]
+	pub type AtStake<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		RoundIndex,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		OldCollatorSnapshot<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+		OptionQuery,
+	>;
+}
+
 /// Minimum collator candidate stake
 fn min_candidate_stk<T: Config>() -> BalanceOf<T> {
 	<<T as Config>::MinCandidateStk as Get<BalanceOf<T>>>::get()
@@ -2315,6 +2337,48 @@ benchmarks! {
 		let cur = 2;
 		let inactive_info = Pallet::<T>::mark_collators_as_inactive(cur);
 	}
+	verify {
+	}
+
+	migrate_old_collator_snapshot {
+		let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+		let (owner_0, _) = create_funded_user::<T>("owner", USER_SEED + 2, 0u32.into());
+		let (owner_1, _) = create_funded_user::<T>("owner", USER_SEED + 3, 0u32.into());
+		let (owner_2, _) = create_funded_user::<T>("owner", USER_SEED + 4, 0u32.into());
+
+		let round_index = 1u32;
+		let collator: T::AccountId = create_funded_collator::<T>(
+			"collator",
+			USER_SEED + 1,
+			min_candidate_stk::<T>() * 1_000_000u32.into(),
+			true,
+			1u32,
+		)?;
+		#[allow(deprecated)]
+		let old_collator_snapshot = before_migration::OldCollatorSnapshot {
+			bond: 42u32.into(),
+			delegations: vec![
+				crate::Bond {
+					owner: owner_0,
+					amount: 10u32.into(),
+				},
+				crate::Bond {
+					owner: owner_1,
+					amount: 20u32.into(),
+				},
+				crate::Bond {
+					owner: owner_2,
+					amount: 40u32.into(),
+				},
+			],
+			total: 72u32.into(),
+		};
+		before_migration::AtStake::<T>::insert(
+			round_index,
+			collator.clone(),
+			old_collator_snapshot,
+		);
+	}: _(RawOrigin::Signed(caller), round_index, collator)
 	verify {
 	}
 }

@@ -80,6 +80,8 @@ pub mod pallet {
 	use crate::delegation_requests::{
 		CancelledScheduledRequest, DelegationAction, ScheduledRequest,
 	};
+	#[allow(deprecated)]
+	use crate::types::deprecated::CollatorSnapshot as OldCollatorSnapshot;
 	use crate::{set::BoundedOrderedSet, traits::*, types::*, InflationInfo, Range, WeightInfo};
 	use crate::{AutoCompoundConfig, AutoCompoundDelegations};
 	use frame_support::pallet_prelude::*;
@@ -253,6 +255,9 @@ pub mod pallet {
 		CannotSetAboveMaxCandidates,
 		MarkingOfflineNotEnabled,
 		CurrentRoundTooLow,
+		AtStakeKeyNotFound,
+		AtStakeCollatorSnapshotAlreadyMigrated,
+		AtStakeOldCollatorSnapshotDecodeFailed,
 	}
 
 	#[pallet::event]
@@ -632,6 +637,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
+	#[pallet::disable_try_decode_storage]
 	#[pallet::getter(fn at_stake)]
 	/// Snapshot of collator delegation stake at the start of the round
 	pub type AtStake<T: Config> = StorageDoubleMap<
@@ -1446,6 +1452,46 @@ pub mod pallet {
 				old: old.into(),
 				new: new.into(),
 			});
+			Ok(().into())
+		}
+
+		// Migrates old collator snapshot data to the new format.
+		#[pallet::call_index(33)]
+		#[pallet::weight(<T as Config>::WeightInfo::migrate_old_collator_snapshot())]
+		pub fn migrate_old_collator_snapshot(
+			origin: OriginFor<T>,
+			round_index: RoundIndex,
+			collator: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			ensure!(
+				<AtStake<T>>::contains_key(round_index, &collator),
+				Error::<T>::AtStakeKeyNotFound
+			);
+			ensure!(
+				<AtStake<T>>::try_get(round_index, &collator).is_err(),
+				Error::<T>::AtStakeCollatorSnapshotAlreadyMigrated
+			);
+			let raw_key = <AtStake<T>>::hashed_key_for(round_index, &collator);
+			#[allow(deprecated)]
+			let old_state: OldCollatorSnapshot<T::AccountId, BalanceOf<T>> =
+				frame_support::storage::unhashed::get(&raw_key)
+					.ok_or(Error::<T>::AtStakeOldCollatorSnapshotDecodeFailed)?;
+			#[allow(deprecated)]
+			let new_state = CollatorSnapshot {
+				bond: old_state.bond,
+				delegations: old_state
+					.delegations
+					.into_iter()
+					.map(|d| BondWithAutoCompound {
+						owner: d.owner,
+						amount: d.amount,
+						auto_compound: Percent::zero(),
+					})
+					.collect(),
+				total: old_state.total,
+			};
+			frame_support::storage::unhashed::put(&raw_key, &new_state);
 			Ok(().into())
 		}
 	}
