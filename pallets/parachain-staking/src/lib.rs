@@ -1455,15 +1455,15 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		// Migrates old collator snapshot data to the new format.
 		#[pallet::call_index(33)]
-		#[pallet::weight(5000)]
+		#[pallet::weight(<T as Config>::WeightInfo::migrate_old_collator_snapshot())]
 		pub fn migrate_old_collator_snapshot(
 			origin: OriginFor<T>,
 			round_index: RoundIndex,
 			collator: T::AccountId,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
-			// This is a hotfix to migrate old collator snapshot data
 			ensure!(
 				<AtStake<T>>::contains_key(round_index, &collator),
 				Error::<T>::AtStakeKeyNotFound
