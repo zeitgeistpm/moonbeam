@@ -1722,4 +1722,9 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(x.into()))
 	}
+	fn migrate_old_collator_snapshot() -> Weight {
+		Weight::from_parts(8_000_000, 1515)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 }
