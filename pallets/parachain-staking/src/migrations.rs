@@ -159,11 +159,6 @@ where
 		let len = maybe_raw_value
 			.expect("ParachainStaking.Round should exist!")
 			.len();
-		log::info!(
-			target: "MigrateRoundWithFirstSlot",
-			"ParachainStaking.Round length: {} bytes",
-			len
-		);
 		ensure!(
 			len == 16 || len == 24,
 			"ParachainStaking.Round should have 16 or 24 bytes (already applied) length!"
@@ -258,5 +253,57 @@ mod tests {
 			compute_theoretical_first_slot::<u32>(10, 5, 100, 12_000),
 			90,
 		);
+	}
+}
+use sp_std::collections::btree_set::BTreeSet;
+
+/// Removes old entries for paid rounds from the `AtStake` storage item.
+pub struct RemoveUndecodablesFromAtStake<T>(PhantomData<T>);
+impl<T> OnRuntimeUpgrade for RemoveUndecodablesFromAtStake<T>
+where
+	T: Config,
+{
+	fn on_runtime_upgrade() -> Weight {
+		let reads = 0u64;
+		let writes = 0u64;
+
+		log::info!(
+			target: "RemoveUndecodablesFromAtStake",
+			"running migration to remove entries for undecodable values from AtStake",
+		);
+
+		log::info!(target: "RemoveUndecodablesFromAtStake", "Removed {:?} undecodable values.", writes);
+
+		T::DbWeight::get().reads_writes(reads, writes)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		let mut undecodable_values = Vec::new();
+
+		let max_unpaid_round = <Round<T>>::get()
+			.current
+			.saturating_sub(T::RewardPaymentDelay::get());
+		<AtStake<T>>::iter_keys()
+			.filter(|(round, candidate)| {
+				round < &max_unpaid_round
+					&& !<Points<T>>::contains_key(round)
+					&& !<DelayedPayouts<T>>::contains_key(round)
+					&& <AtStake<T>>::try_get(round, candidate).is_err()
+			})
+			.map(|(round, candidate)| (round, candidate))
+			.collect::<BTreeSet<_>>()
+			.into_iter()
+			.for_each(|(round, candidate)| {
+				undecodable_values.push((round, candidate));
+			});
+		log::info!(target: "RemovePaidRoundsFromAtStake", "Undecodables:\n{:#?}", undecodable_values);
+		log::info!(target: "RemovePaidRoundsFromAtStake", "POST_UPGRADE: undecodable values len {:?}.", undecodable_values.len());
+		Ok(Vec::new())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		Ok(())
 	}
 }
