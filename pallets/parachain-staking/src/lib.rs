@@ -462,7 +462,7 @@ pub mod pallet {
 			let mut weight = <T as Config>::WeightInfo::base_on_initialize();
 
 			let mut round = <Round<T>>::get();
-			log::debug!(target: "on_initialize before if", "round: {:?}", round);
+			log::info!(target: "on_initialize before if", "round: {:?}", round);
 			if round.should_update(n) {
 				// fetch current slot number
 				let current_slot: u64 = T::SlotProvider::get().into();
@@ -474,10 +474,10 @@ pub mod pallet {
 				let round_duration = (current_slot.saturating_sub(round.first_slot))
 					.saturating_mul(T::SlotDuration::get());
 
-				log::debug!(target: "on_initialize before update", "round: {:?}, n: {:?}, current_slot: {:?}", round, n, current_slot);
+				log::info!(target: "on_initialize before update", "round: {:?}, n: {:?}, current_slot: {:?}", round, n, current_slot);
 				// mutate round
 				round.update(n, current_slot);
-				log::debug!(target: "on_initialize after update", "round: {:?}", round);
+				log::info!(target: "on_initialize after update", "round: {:?}", round);
 				// notify that new round begin
 				weight = weight.saturating_add(T::OnNewRound::on_new_round(round.current));
 				// pay all stakers for T::RewardPaymentDelay rounds ago
@@ -1855,7 +1855,7 @@ pub mod pallet {
 				length: round_length,
 				..
 			} = round_info;
-			log::debug!(target: "prepare_staking_payouts", "round_info: {:?}", round_info);
+			log::info!(target: "prepare_staking_payouts", "round_info: {:?}", round_info);
 
 			// This function is called right after the round index increment,
 			// and the goal is to compute the payout informations for the round that just ended.
