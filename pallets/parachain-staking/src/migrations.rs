@@ -295,12 +295,12 @@ where
 		let reads = 0u64;
 		let writes = 0u64;
 
+		let round = crate::Round::<T>::get();
 		log::info!(
 			target: "RemoveUndecodablesFromAtStake",
-			"running migration to remove entries for undecodable values from AtStake",
+			"Running post-upgrade for RemoveUndecodablesFromAtStake, round: {:#?}",
+			round
 		);
-
-		log::info!(target: "RemoveUndecodablesFromAtStake", "Removed {:?} undecodable values.", writes);
 
 		T::DbWeight::get().reads_writes(reads, writes)
 	}
@@ -332,12 +332,6 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let round = crate::Round::<T>::get();
-		log::info!(
-			target: "RemoveUndecodablesFromAtStake",
-			"Running post-upgrade for RemoveUndecodablesFromAtStake, round: {:#?}",
-			round
-		);
 		Ok(())
 	}
 }
