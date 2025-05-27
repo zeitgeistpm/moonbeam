@@ -122,30 +122,6 @@ where
 
 		Default::default()
 	}
-
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-		let round = crate::Round::<T>::get();
-
-		log::info!(
-			"MultiplyRoundLenBy2: round length before migration: {:?}",
-			round.length
-		);
-
-		Ok(Vec::new())
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-		let round = crate::Round::<T>::get();
-
-		log::info!(
-			"MultiplyRoundLenBy2: round length after migration: {:?}",
-			round.length
-		);
-
-		Ok(())
-	}
 }
 
 /// Migrates RoundInfo and add the field first_slot
@@ -195,38 +171,30 @@ where
 		let raw_key = crate::Round::<T>::storage_value_final_key();
 
 		// Read old round info
-		let mut round: RoundInfo<BlockNumberFor<T>> =
-			if let Some(bytes) = unhashed::get_raw(&raw_key) {
-				let len = bytes.len();
-				match len {
-					// Migration already done
-					24 => {
-						log::info!("MigrateRoundWithFirstSlot already applied.");
-						return Default::default();
-					}
-					// Migrate from rt2700
-					16 => match OldRoundInfo::<BlockNumberFor<T>>::decode(&mut &bytes[..]) {
-						Ok(round) => {
-							log::info!("MigrateRoundWithFirstSlot: migrating from rt2700. Before round: {:#?}", round);
-							round.into()
-						}
-						Err(e) => {
-							panic!("corrupted storage: fail to decode RoundInfoRt2700: {}", e)
-						}
-					},
-					// Storage corrupted
-					x => panic!(
-						"corrupted storage: parachainStaking.Round invalid length: {} bytes",
-						x
-					),
+		let mut round: RoundInfo<BlockNumberFor<T>> = if let Some(bytes) =
+			unhashed::get_raw(&raw_key)
+		{
+			let len = bytes.len();
+			match len {
+				// Migration already done
+				24 => {
+					log::info!("MigrateRoundWithFirstSlot already applied.");
+					return Default::default();
 				}
-			} else {
-				panic!("corrupted storage: parachainStaking.Round don't exist");
-			};
-		log::info!(
-			"MigrateRoundWithFirstSlot: Round before migration: {:#?}",
-			round
-		);
+				// Migrate from rt2700
+				16 => match OldRoundInfo::<BlockNumberFor<T>>::decode(&mut &bytes[..]) {
+					Ok(round) => round.into(),
+					Err(e) => panic!("corrupted storage: fail to decode RoundInfoRt2700: {}", e),
+				},
+				// Storage corrupted
+				x => panic!(
+					"corrupted storage: parachainStaking.Round invalid length: {} bytes",
+					x
+				),
+			}
+		} else {
+			panic!("corrupted storage: parachainStaking.Round don't exist");
+		};
 
 		// Compute new field `first_slot``
 		round.first_slot = compute_theoretical_first_slot(
@@ -255,11 +223,7 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let round = crate::Round::<T>::get(); // Should panic if SCALE decode fail
-		log::info!(
-			"MigrateRoundWithFirstSlot: Round after migration: {:?}",
-			round
-		);
+		let _round = crate::Round::<T>::get(); // Should panic if SCALE decode fail
 		Ok(())
 	}
 }
