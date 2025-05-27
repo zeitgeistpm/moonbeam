@@ -118,6 +118,11 @@ where
 		// Multiply round length by 2
 		round.length = round.length * 2;
 
+		panic!(
+			"MultiplyRoundLenBy2 migration already applied. Round length: {:?}",
+			round.length
+		);
+
 		crate::Round::<T>::put(round);
 
 		Default::default()
