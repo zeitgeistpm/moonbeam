@@ -122,6 +122,32 @@ where
 
 		Default::default()
 	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
+		let round = crate::Round::<T>::get();
+
+		log::info!(
+			target: "MultiplyRoundLenBy2",
+			"round length before migration: {:?}",
+			round.length
+		);
+
+		Ok(Vec::new())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+		let round = crate::Round::<T>::get();
+
+		log::info!(
+			target: "MultiplyRoundLenBy2",
+			"round length after migration: {:?}",
+			round.length
+		);
+
+		Ok(())
+	}
 }
 
 /// Migrates RoundInfo and add the field first_slot
@@ -223,7 +249,12 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let _round = crate::Round::<T>::get(); // Should panic if SCALE decode fail
+		let round = crate::Round::<T>::get(); // Should panic if SCALE decode fail
+		log::info!(
+			target: "MigrateRoundWithFirstSlot",
+			"Round after migration: {:?}",
+			round
+		);
 		Ok(())
 	}
 }
