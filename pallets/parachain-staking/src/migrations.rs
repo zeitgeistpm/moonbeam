@@ -118,11 +118,6 @@ where
 		// Multiply round length by 2
 		round.length = round.length * 2;
 
-		panic!(
-			"MultiplyRoundLenBy2 migration already applied. Round length: {:?}",
-			round.length
-		);
-
 		crate::Round::<T>::put(round);
 
 		Default::default()
@@ -141,7 +136,7 @@ where
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
 		let round = crate::Round::<T>::get();
 
 		log::info!(
@@ -288,7 +283,7 @@ mod tests {
 		);
 	}
 }
-use sp_std::collections::btree_set::BTreeSet;
+// use sp_std::collections::btree_set::BTreeSet;
 
 /// Removes old entries for paid rounds from the `AtStake` storage item.
 pub struct RemoveUndecodablesFromAtStake<T>(PhantomData<T>);
@@ -312,31 +307,37 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		let mut undecodable_values = Vec::new();
+		// let mut undecodable_values = Vec::new();
 
-		let max_unpaid_round = <Round<T>>::get()
-			.current
-			.saturating_sub(T::RewardPaymentDelay::get());
-		<AtStake<T>>::iter_keys()
-			.filter(|(round, candidate)| {
-				round < &max_unpaid_round
-					&& !<Points<T>>::contains_key(round)
-					&& !<DelayedPayouts<T>>::contains_key(round)
-					&& <AtStake<T>>::try_get(round, candidate).is_err()
-			})
-			.map(|(round, candidate)| (round, candidate))
-			.collect::<BTreeSet<_>>()
-			.into_iter()
-			.for_each(|(round, candidate)| {
-				undecodable_values.push((round, candidate));
-			});
-		log::info!(target: "RemovePaidRoundsFromAtStake", "Undecodables:\n{:#?}", undecodable_values);
-		log::info!(target: "RemovePaidRoundsFromAtStake", "POST_UPGRADE: undecodable values len {:?}.", undecodable_values.len());
+		// let max_unpaid_round = <Round<T>>::get()
+		// 	.current
+		// 	.saturating_sub(T::RewardPaymentDelay::get());
+		// <AtStake<T>>::iter_keys()
+		// 	.filter(|(round, candidate)| {
+		// 		round < &max_unpaid_round
+		// 			&& !<Points<T>>::contains_key(round)
+		// 			&& !<DelayedPayouts<T>>::contains_key(round)
+		// 			&& <AtStake<T>>::try_get(round, candidate).is_err()
+		// 	})
+		// 	.map(|(round, candidate)| (round, candidate))
+		// 	.collect::<BTreeSet<_>>()
+		// 	.into_iter()
+		// 	.for_each(|(round, candidate)| {
+		// 		undecodable_values.push((round, candidate));
+		// 	});
+		// log::info!(target: "RemovePaidRoundsFromAtStake", "Undecodables:\n{:#?}", undecodable_values);
+		// log::info!(target: "RemovePaidRoundsFromAtStake", "POST_UPGRADE: undecodable values len {:?}.", undecodable_values.len());
 		Ok(Vec::new())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		let round = crate::Round::<T>::get();
+		log::info!(
+			target: "RemoveUndecodablesFromAtStake",
+			"Running post-upgrade for RemoveUndecodablesFromAtStake, round: {:#?}",
+			round
+		);
 		Ok(())
 	}
 }
