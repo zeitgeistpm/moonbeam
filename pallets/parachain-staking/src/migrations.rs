@@ -128,8 +128,7 @@ where
 		let round = crate::Round::<T>::get();
 
 		log::info!(
-			target: "MultiplyRoundLenBy2",
-			"round length before migration: {:?}",
+			"MultiplyRoundLenBy2: round length before migration: {:?}",
 			round.length
 		);
 
@@ -141,8 +140,7 @@ where
 		let round = crate::Round::<T>::get();
 
 		log::info!(
-			target: "MultiplyRoundLenBy2",
-			"round length after migration: {:?}",
+			"MultiplyRoundLenBy2: round length after migration: {:?}",
 			round.length
 		);
 
@@ -251,8 +249,7 @@ where
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		let round = crate::Round::<T>::get(); // Should panic if SCALE decode fail
 		log::info!(
-			target: "MigrateRoundWithFirstSlot",
-			"Round after migration: {:?}",
+			"MigrateRoundWithFirstSlot: Round after migration: {:?}",
 			round
 		);
 		Ok(())
