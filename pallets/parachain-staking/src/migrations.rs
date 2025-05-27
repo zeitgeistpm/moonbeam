@@ -127,17 +127,17 @@ where
 /// Migrates RoundInfo and add the field first_slot
 pub struct MigrateRoundWithFirstSlot<T: Config>(core::marker::PhantomData<T>);
 
-#[derive(Decode)]
-struct RoundInfoRt2700 {
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+struct OldRoundInfo<BlockNumber> {
 	/// Current round index
 	pub current: RoundIndex,
 	/// The first block of the current round
-	pub first: u32,
+	pub first: BlockNumber,
 	/// The length of the current round in number of blocks
 	pub length: u32,
 }
-impl<BlockNumber: From<u32>> From<RoundInfoRt2700> for RoundInfo<BlockNumber> {
-	fn from(round: RoundInfoRt2700) -> Self {
+impl<BlockNumber: From<u32>> From<OldRoundInfo<BlockNumber>> for RoundInfo<BlockNumber> {
+	fn from(round: OldRoundInfo<BlockNumber>) -> Self {
 		Self {
 			current: round.current,
 			first: round.first.into(),
@@ -182,7 +182,7 @@ where
 					return Default::default();
 				}
 				// Migrate from rt2700
-				16 => match RoundInfoRt2700::decode(&mut &bytes[..]) {
+				16 => match OldRoundInfo::<BlockNumberFor<T>>::decode(&mut &bytes[..]) {
 					Ok(round) => round.into(),
 					Err(e) => panic!("corrupted storage: fail to decode RoundInfoRt2700: {}", e),
 				},
