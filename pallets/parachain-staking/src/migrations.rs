@@ -104,26 +104,6 @@ impl<T: Config> OnRuntimeUpgrade for MigrateParachainBondConfig<T> {
 	}
 }
 
-/// Multiply round length by 2
-pub struct MultiplyRoundLenBy2<T: Config>(core::marker::PhantomData<T>);
-
-impl<T> OnRuntimeUpgrade for MultiplyRoundLenBy2<T>
-where
-	T: Config,
-	BlockNumberFor<T>: From<u32> + Into<u64>,
-{
-	fn on_runtime_upgrade() -> frame_support::pallet_prelude::Weight {
-		let mut round = crate::Round::<T>::get();
-
-		// Multiply round length by 2
-		round.length = round.length * 2;
-
-		crate::Round::<T>::put(round);
-
-		Default::default()
-	}
-}
-
 /// Migrates RoundInfo and add the field first_slot
 pub struct MigrateRoundWithFirstSlot<T: Config>(core::marker::PhantomData<T>);
 
@@ -203,6 +183,14 @@ where
 			u64::from(T::SlotProvider::get()),
 			T::BlockTime::get(),
 		);
+
+		// For parachains using asynchronous backing, the round length is doubled
+		// See more details here: https://github.com/moonbeam-foundation/moonbeam/blob/6b2f75c9b29e3b3483940bb69ff40edf9f91eff6/runtime/moonbase/src/migrations.rs#L33
+		// This replaces the separate `MultiplyRoundLenBy2` migration in order to ensure idempotency
+		// since there is no mechanism to check if the `MultiplyRoundLenBy2` migration 
+		// has already been applied (pallet_parachain_staking has no storage version).
+		// Multiply round length by 2
+		round.length = round.length * 2;
 
 		// Fill DelayedPayouts for rounds N and N-1
 		if let Some(delayed_payout) =
