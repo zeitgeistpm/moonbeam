@@ -69,6 +69,8 @@ impl<T: Config> OnRuntimeUpgrade for MigrateParachainBondConfig<T> {
 			b"ParachainBondInfo",
 		));
 
+		log::info!("MigrateParachainBondConfig migration done.");
+
 		Weight::default()
 	}
 
@@ -78,7 +80,11 @@ impl<T: Config> OnRuntimeUpgrade for MigrateParachainBondConfig<T> {
 			OldParachainBondConfig<T::AccountId>,
 		>(b"ParachainStaking", b"ParachainBondInfo", &[]);
 
-		ensure!(state.is_some(), "State not found");
+		if state.is_some() {
+			log::info!("MigrateParachainBondConfig pre_upgrade: state found.");
+		} else {
+			log::warn!("MigrateParachainBondConfig pre_upgrade: state not found.");
+		}
 
 		Ok(state.unwrap().encode())
 	}
