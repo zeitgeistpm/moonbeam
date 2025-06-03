@@ -82,15 +82,19 @@ impl<T: Config> OnRuntimeUpgrade for MigrateParachainBondConfig<T> {
 
 		if state.is_some() {
 			log::info!("MigrateParachainBondConfig pre_upgrade: state found.");
+			Ok(state.unwrap().encode())
 		} else {
 			log::warn!("MigrateParachainBondConfig pre_upgrade: state not found.");
+			Ok(Vec::new())
 		}
-
-		Ok(state.unwrap().encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+		if state.is_empty() {
+			log::warn!("MigrateParachainBondConfig post_upgrade: no state to migrate.");
+			return Ok(());
+		}
 		let old_state: OldParachainBondConfig<T::AccountId> =
 			parity_scale_codec::Decode::decode(&mut &state[..])
 				.map_err(|_| sp_runtime::DispatchError::Other("Failed to decode old state"))?;
