@@ -26,6 +26,30 @@ use sp_runtime::Saturating;
 #[cfg(feature = "try-runtime")]
 use sp_std::vec::Vec;
 
+// For parachains using asynchronous backing, the round length is doubled
+// See more details here: https://github.com/moonbeam-foundation/moonbeam/blob/6b2f75c9b29e3b3483940bb69ff40edf9f91eff6/runtime/moonbase/src/migrations.rs#L33
+// Multiply round length by 2
+pub struct MultiplyRoundLenBy2<T: Config>(core::marker::PhantomData<T>);
+
+impl<T> OnRuntimeUpgrade for MultiplyRoundLenBy2<T>
+where
+	T: Config,
+	BlockNumberFor<T>: From<u32> + Into<u64>,
+{
+	fn on_runtime_upgrade() -> frame_support::pallet_prelude::Weight {
+		let mut round = crate::Round::<T>::get();
+
+		// TODO problem: how to recognize idempotency?
+
+		// Multiply round length by 2
+		round.length = round.length * 2;
+
+		crate::Round::<T>::put(round);
+
+		Default::default()
+	}
+}
+
 #[derive(
 	Clone,
 	PartialEq,
