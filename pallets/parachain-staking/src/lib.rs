@@ -1455,6 +1455,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		// TODO loop through multiple old collator snapshots to save transaction executions and fees on the user side
 		// Migrates old collator snapshot data to the new format.
 		#[pallet::call_index(33)]
 		#[pallet::weight(<T as Config>::WeightInfo::migrate_old_collator_snapshot())]
