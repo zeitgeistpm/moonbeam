@@ -18,12 +18,10 @@ use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
 
 use crate::*;
 use frame_support::pallet_prelude::*;
-use frame_support::storage::generator::StorageValue;
-use frame_support::storage::unhashed;
+use frame_support::storage::{generator::StorageValue, storage_prefix, unhashed};
 use frame_system::pallet_prelude::*;
+use parity_scale_codec::{Decode, Encode};
 use sp_runtime::Saturating;
-
-#[cfg(feature = "try-runtime")]
 use sp_std::vec::Vec;
 
 // For parachains using asynchronous backing, the round length is doubled
@@ -31,22 +29,97 @@ use sp_std::vec::Vec;
 // Multiply round length by 2
 pub struct MultiplyRoundLenBy2<T: Config>(core::marker::PhantomData<T>);
 
+const ROUND_LENGTH_MIGRATION_KEY: &[u8] = b"RoundLenX2Applied";
+
+fn round_length_migration_storage_key() -> [u8; 32] {
+	storage_prefix(b"ParachainStaking", ROUND_LENGTH_MIGRATION_KEY)
+}
+
+fn has_round_length_been_multiplied() -> bool {
+	let key = round_length_migration_storage_key();
+	unhashed::get::<bool>(&key).unwrap_or(false)
+}
+
+fn mark_round_length_as_multiplied() {
+	let key = round_length_migration_storage_key();
+	unhashed::put(&key, &true);
+}
+
 impl<T> OnRuntimeUpgrade for MultiplyRoundLenBy2<T>
 where
 	T: Config,
 	BlockNumberFor<T>: From<u32> + Into<u64>,
 {
 	fn on_runtime_upgrade() -> frame_support::pallet_prelude::Weight {
-		let mut round = crate::Round::<T>::get();
+		let db_weight = T::DbWeight::get();
 
-		// TODO problem: how to recognize idempotency?
+		if has_round_length_been_multiplied() {
+			log::info!("MultiplyRoundLenBy2 already executed; skipping.");
+			return db_weight.reads(1);
+		}
+
+		let mut round = crate::Round::<T>::get();
+		let old_length = round.length;
 
 		// Multiply round length by 2
-		round.length = round.length * 2;
+		round.length = round.length.saturating_mul(2);
 
 		crate::Round::<T>::put(round);
+		// Mark as completed so subsequent executions (e.g., try-runtime re-run) become no-ops.
+		// This keeps the migration idempotent even when executed multiple times.
+		if round.length != old_length {
+			log::info!(
+				"MultiplyRoundLenBy2 doubled round length from {} to {}.",
+				old_length,
+				round.length
+			);
+		} else {
+			log::warn!(
+				"MultiplyRoundLenBy2 left round length unchanged at {} (old value: {}).",
+				round.length,
+				old_length
+			);
+		}
+		mark_round_length_as_multiplied();
 
-		Default::default()
+		db_weight.reads_writes(2, 2)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		let round = crate::Round::<T>::get();
+		let already_run = has_round_length_been_multiplied();
+
+		Ok((round.length, already_run).encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		let (old_length, already_run): (u32, bool) =
+			<(u32, bool)>::decode(&mut &state[..]).map_err(|_| {
+				sp_runtime::TryRuntimeError::Other(
+					"MultiplyRoundLenBy2: failed to decode pre-upgrade state".into(),
+				)
+			})?;
+
+		let round = crate::Round::<T>::get();
+		let flag_after = has_round_length_been_multiplied();
+
+		if already_run {
+			ensure!(
+				round.length == old_length,
+				"Round length changed even though migration was previously applied"
+			);
+		} else {
+			ensure!(
+				round.length == old_length.saturating_mul(2),
+				"Round length was not doubled during migration"
+			);
+		}
+
+		ensure!(flag_after, "Round length multiplication flag missing after migration");
+
+		Ok(())
 	}
 }
 
