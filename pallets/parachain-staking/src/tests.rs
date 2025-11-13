@@ -7367,12 +7367,16 @@ fn migrate_old_collator_snapshot_works() {
 			// Migrate the old snapshot to the new format
 			assert_ok!(ParachainStaking::migrate_old_collator_snapshot(
 				RuntimeOrigin::signed(2),
-				vec![(round_index_one, candidate_one), (round_index_two, candidate_two)],
+				vec![
+					(round_index_one, candidate_one),
+					(round_index_two, candidate_two)
+				],
 			));
 
-			for (round_index, candidate) in
-				[(round_index_one, candidate_one), (round_index_two, candidate_two)]
-			{
+			for (round_index, candidate) in [
+				(round_index_one, candidate_one),
+				(round_index_two, candidate_two),
+			] {
 				let result = <AtStake<Test>>::get(round_index, candidate).unwrap();
 				assert_eq!(
 					result,
@@ -7412,14 +7416,12 @@ fn migrate_old_collator_snapshot_works() {
 
 #[test]
 fn migrate_old_collator_snapshot_rejects_empty_input() {
-	ExtBuilder::default()
-		.build()
-		.execute_with(|| {
-			assert_noop!(
-				ParachainStaking::migrate_old_collator_snapshot(RuntimeOrigin::signed(2), vec![]),
-				<Error<Test>>::NoCollatorSnapshotMigrationsProvided
-			);
-		});
+	ExtBuilder::default().build().execute_with(|| {
+		assert_noop!(
+			ParachainStaking::migrate_old_collator_snapshot(RuntimeOrigin::signed(2), vec![]),
+			<Error<Test>>::NoCollatorSnapshotMigrationsProvided
+		);
+	});
 }
 
 #[test]

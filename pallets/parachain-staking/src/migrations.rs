@@ -22,6 +22,8 @@ use frame_support::storage::{generator::StorageValue, storage_prefix, unhashed};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use sp_runtime::Saturating;
+use sp_std::marker::PhantomData;
+#[cfg(not(feature = "std"))]
 use sp_std::vec::Vec;
 
 // For parachains using asynchronous backing, the round length is doubled
@@ -95,8 +97,8 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let (old_length, already_run): (u32, bool) =
-			<(u32, bool)>::decode(&mut &state[..]).map_err(|_| {
+		let (old_length, already_run): (u32, bool) = <(u32, bool)>::decode(&mut &state[..])
+			.map_err(|_| {
 				sp_runtime::TryRuntimeError::Other(
 					"MultiplyRoundLenBy2: failed to decode pre-upgrade state".into(),
 				)
@@ -117,7 +119,10 @@ where
 			);
 		}
 
-		ensure!(flag_after, "Round length multiplication flag missing after migration");
+		ensure!(
+			flag_after,
+			"Round length multiplication flag missing after migration"
+		);
 
 		Ok(())
 	}
@@ -208,6 +213,210 @@ impl<T: Config> OnRuntimeUpgrade for MigrateParachainBondConfig<T> {
 		ensure!(new_state == expected_new_state, "State migration failed");
 
 		Ok(())
+	}
+}
+
+#[derive(Clone, Copy)]
+/// Identifies a legacy collator snapshot entry that must be migrated.
+pub struct LegacyAtStakeMigrationKey {
+	/// Round index for the snapshot.
+	pub round_index: RoundIndex,
+	/// Collator account, stored as raw 32-byte encoding.
+	pub collator: [u8; 32],
+}
+
+/// Provides access to a static list of legacy collator snapshot keys that should be migrated.
+pub trait LegacyAtStakeMigrationList {
+	/// Total number of entries contained in this list.
+	const TOTAL_KEYS: u32;
+	/// Zero-based index from which migration should start.
+	const START_INDEX: u32 = 0;
+
+	/// Return the key located at `index` if it exists.
+	fn get_key(index: u32) -> Option<LegacyAtStakeMigrationKey>;
+}
+
+#[frame_support::storage_alias]
+pub(super) type LegacyAtStakeMigrationCursor<T: Config> = StorageValue<Pallet<T>, u32, OptionQuery>;
+
+#[frame_support::storage_alias]
+pub(super) type LegacyAtStakeMigrationVersion<T: Config> = StorageValue<Pallet<T>, u32, ValueQuery>;
+
+const LEGACY_AT_STAKE_MIGRATION_COMPLETE: u32 = u32::MAX;
+
+/// Runtime migration that processes old collator snapshots in batches using an external key
+/// provider.
+pub struct LegacyAtStakeCursorMigration<T, Source, const CHUNK: u32>(PhantomData<(T, Source)>);
+
+impl<T, Source, const CHUNK: u32> OnRuntimeUpgrade
+	for LegacyAtStakeCursorMigration<T, Source, CHUNK>
+where
+	T: Config,
+	T::AccountId: Decode,
+	Source: LegacyAtStakeMigrationList,
+{
+	fn on_runtime_upgrade() -> Weight {
+		if Source::TOTAL_KEYS == 0 || CHUNK == 0 {
+			// Ensure cursor is cleared even if we have nothing to do.
+			if LegacyAtStakeMigrationCursor::<T>::take().is_some() {
+				return T::DbWeight::get().writes(1);
+			}
+			return Weight::zero();
+		}
+
+		let db_weight = T::DbWeight::get();
+		let max_weight = T::BlockWeights::get().max_block;
+		let per_entry_weight = db_weight.reads_writes(3, 1);
+		let current_version = T::Version::get().spec_version;
+
+		let mut total_weight = db_weight.reads(1);
+		let last_version = LegacyAtStakeMigrationVersion::<T>::get();
+		if last_version >= current_version {
+			return total_weight;
+		}
+
+		let mut next_index =
+			LegacyAtStakeMigrationCursor::<T>::get().unwrap_or(Source::START_INDEX);
+		total_weight = total_weight.saturating_add(db_weight.reads(1));
+		next_index = next_index.max(Source::START_INDEX);
+
+		if next_index >= Source::TOTAL_KEYS {
+			LegacyAtStakeMigrationCursor::<T>::kill();
+			LegacyAtStakeMigrationVersion::<T>::put(LEGACY_AT_STAKE_MIGRATION_COMPLETE);
+			return total_weight.saturating_add(db_weight.writes(2));
+		}
+
+		let mut processed: u32 = 0;
+		while processed < CHUNK && next_index < Source::TOTAL_KEYS {
+			let next_weight = total_weight.saturating_add(per_entry_weight);
+			if next_weight.ref_time() > max_weight.ref_time()
+				|| next_weight.proof_size() > max_weight.proof_size()
+			{
+				log::info!(
+					target: "runtime::parachain-staking",
+					"Stopping legacy snapshot migration early due to weight limits after processing {} entries.",
+					processed
+				);
+				break;
+			}
+
+			let Some(key) = Source::get_key(next_index) else {
+				log::warn!(
+					target: "runtime::parachain-staking",
+					"Legacy snapshot migration encountered missing entry at index {}.",
+					next_index
+				);
+				break;
+			};
+
+			if migrate_legacy_snapshot::<T>(&key).is_err() {
+				log::warn!(
+					target: "runtime::parachain-staking",
+					"Unable to migrate legacy snapshot for round {} and collator {:?}.",
+					key.round_index,
+					key.collator,
+				);
+			}
+
+			processed = processed.saturating_add(1);
+			next_index = next_index.saturating_add(1);
+			total_weight = next_weight;
+		}
+
+		if processed == 0 {
+			return total_weight;
+		}
+
+		let finished = next_index >= Source::TOTAL_KEYS;
+		if finished {
+			LegacyAtStakeMigrationCursor::<T>::kill();
+		} else {
+			LegacyAtStakeMigrationCursor::<T>::put(next_index);
+		}
+		total_weight = total_weight.saturating_add(db_weight.writes(1));
+
+		let version_to_store = if finished {
+			LEGACY_AT_STAKE_MIGRATION_COMPLETE
+		} else {
+			current_version
+		};
+		LegacyAtStakeMigrationVersion::<T>::put(version_to_store);
+		total_weight = total_weight.saturating_add(db_weight.writes(1));
+
+		let remaining = Source::TOTAL_KEYS.saturating_sub(next_index);
+		if finished {
+			log::info!(
+				target: "runtime::parachain-staking",
+				"Legacy snapshot migration completed after processing {} entries.",
+				processed
+			);
+		} else {
+			log::info!(
+				target: "runtime::parachain-staking",
+				"Legacy snapshot migration processed {} entries ({} remaining). Next index={}.",
+				processed,
+				remaining,
+				next_index
+			);
+		}
+
+		total_weight
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		let cursor = LegacyAtStakeMigrationCursor::<T>::get().unwrap_or(Source::START_INDEX);
+		let version = LegacyAtStakeMigrationVersion::<T>::get();
+		Ok((cursor, version).encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		let (prev_cursor, prev_version) = <(u32, u32)>::decode(&mut &state[..])
+			.map_err(|_| "Legacy migration state decode failed")?;
+		let cursor = LegacyAtStakeMigrationCursor::<T>::get().unwrap_or(Source::TOTAL_KEYS);
+		ensure!(
+			cursor >= prev_cursor,
+			"Legacy migration cursor must not move backwards"
+		);
+		let version = LegacyAtStakeMigrationVersion::<T>::get();
+		ensure!(
+			version >= prev_version,
+			"Legacy migration version must not move backwards"
+		);
+		Ok(())
+	}
+}
+
+fn migrate_legacy_snapshot<T: Config + frame_system::Config>(
+	key: &LegacyAtStakeMigrationKey,
+) -> Result<(), ()>
+where
+	T::AccountId: Decode,
+{
+	let mut input: &[u8] = &key.collator;
+	let account_id = T::AccountId::decode(&mut input).map_err(|_| {
+		log::error!(
+			target: "runtime::parachain-staking",
+			"Failed to decode AccountId from legacy snapshot bytes {:?} (round {}).",
+			key.collator,
+			key.round_index
+		);
+	})?;
+
+	match crate::Pallet::<T>::migrate_single_old_collator_snapshot(key.round_index, account_id) {
+		Ok(()) => Ok(()),
+		Err(Error::<T>::AtStakeCollatorSnapshotAlreadyMigrated) => Ok(()),
+		Err(Error::<T>::AtStakeKeyNotFound) => Ok(()),
+		Err(err) => {
+			log::error!(
+				target: "runtime::parachain-staking",
+				"Failed to migrate legacy snapshot for round {}: {:?}",
+				key.round_index,
+				err
+			);
+			Err(())
+		}
 	}
 }
 

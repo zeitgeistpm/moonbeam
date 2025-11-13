@@ -1503,23 +1503,23 @@ pub mod pallet {
 			actual_weight
 		}
 
-		fn migrate_single_old_collator_snapshot(
+		pub(crate) fn migrate_single_old_collator_snapshot(
 			round_index: RoundIndex,
 			collator: T::AccountId,
 		) -> Result<(), Error<T>> {
-			ensure!(
-				<AtStake<T>>::contains_key(round_index, &collator),
-				Error::<T>::AtStakeKeyNotFound
-			);
-			ensure!(
-				<AtStake<T>>::try_get(round_index, &collator).is_err(),
-				Error::<T>::AtStakeCollatorSnapshotAlreadyMigrated
-			);
 			let raw_key = <AtStake<T>>::hashed_key_for(round_index, &collator);
+			let Some(raw_value) = frame_support::storage::unhashed::get_raw(&raw_key) else {
+				return Err(Error::<T>::AtStakeKeyNotFound);
+			};
+
+			if CollatorSnapshot::<T::AccountId, BalanceOf<T>>::decode(&mut &raw_value[..]).is_ok() {
+				return Err(Error::<T>::AtStakeCollatorSnapshotAlreadyMigrated);
+			}
+
 			#[allow(deprecated)]
 			let old_state: OldCollatorSnapshot<T::AccountId, BalanceOf<T>> =
-				frame_support::storage::unhashed::get(&raw_key)
-					.ok_or(Error::<T>::AtStakeOldCollatorSnapshotDecodeFailed)?;
+				OldCollatorSnapshot::decode(&mut &raw_value[..])
+					.map_err(|_| Error::<T>::AtStakeOldCollatorSnapshotDecodeFailed)?;
 			#[allow(deprecated)]
 			let new_state = CollatorSnapshot {
 				bond: old_state.bond,
