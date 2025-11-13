@@ -258,6 +258,7 @@ pub mod pallet {
 		AtStakeKeyNotFound,
 		AtStakeCollatorSnapshotAlreadyMigrated,
 		AtStakeOldCollatorSnapshotDecodeFailed,
+		NoCollatorSnapshotMigrationsProvided,
 	}
 
 	#[pallet::event]
@@ -1455,16 +1456,57 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		// TODO loop through multiple old collator snapshots to save transaction executions and fees on the user side
-		// Migrates old collator snapshot data to the new format.
+		/// Migrates old collator snapshot data to the new format for multiple keys in a single
+		/// transaction.
+		///
+		/// Accepts a non-empty vector of `(round_index, collator_account)` pairs and migrates each
+		/// entry in order until either all succeed or one fails.
 		#[pallet::call_index(33)]
-		#[pallet::weight(<T as Config>::WeightInfo::migrate_old_collator_snapshot())]
+		#[pallet::weight(<T as Config>::WeightInfo::migrate_old_collator_snapshot(
+			migrations.len().max(1) as u32
+		))]
 		pub fn migrate_old_collator_snapshot(
 			origin: OriginFor<T>,
-			round_index: RoundIndex,
-			collator: T::AccountId,
+			migrations: Vec<(RoundIndex, T::AccountId)>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
+			ensure!(
+				!migrations.is_empty(),
+				Error::<T>::NoCollatorSnapshotMigrationsProvided
+			);
+			for (round_index, collator) in migrations {
+				Self::migrate_single_old_collator_snapshot(round_index, collator)?;
+			}
+			Ok(().into())
+		}
+	}
+
+	/// Represents a payout made via `pay_one_collator_reward`.
+	pub(crate) enum RewardPayment {
+		/// A collator was paid
+		Paid,
+		/// A collator was skipped for payment. This can happen if they haven't been awarded any
+		/// points, that is, they did not produce any blocks.
+		Skipped,
+		/// All collator payments have been processed.
+		Finished,
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub fn set_candidate_bond_to_zero(acc: &T::AccountId) -> Weight {
+			let actual_weight =
+				<T as Config>::WeightInfo::set_candidate_bond_to_zero(T::MaxCandidates::get());
+			if let Some(mut state) = <CandidateInfo<T>>::get(&acc) {
+				state.bond_less::<T>(acc.clone(), state.bond);
+				<CandidateInfo<T>>::insert(&acc, state);
+			}
+			actual_weight
+		}
+
+		fn migrate_single_old_collator_snapshot(
+			round_index: RoundIndex,
+			collator: T::AccountId,
+		) -> Result<(), Error<T>> {
 			ensure!(
 				<AtStake<T>>::contains_key(round_index, &collator),
 				Error::<T>::AtStakeKeyNotFound
@@ -1493,30 +1535,7 @@ pub mod pallet {
 				total: old_state.total,
 			};
 			frame_support::storage::unhashed::put(&raw_key, &new_state);
-			Ok(().into())
-		}
-	}
-
-	/// Represents a payout made via `pay_one_collator_reward`.
-	pub(crate) enum RewardPayment {
-		/// A collator was paid
-		Paid,
-		/// A collator was skipped for payment. This can happen if they haven't been awarded any
-		/// points, that is, they did not produce any blocks.
-		Skipped,
-		/// All collator payments have been processed.
-		Finished,
-	}
-
-	impl<T: Config> Pallet<T> {
-		pub fn set_candidate_bond_to_zero(acc: &T::AccountId) -> Weight {
-			let actual_weight =
-				<T as Config>::WeightInfo::set_candidate_bond_to_zero(T::MaxCandidates::get());
-			if let Some(mut state) = <CandidateInfo<T>>::get(&acc) {
-				state.bond_less::<T>(acc.clone(), state.bond);
-				<CandidateInfo<T>>::insert(&acc, state);
-			}
-			actual_weight
+			Ok(())
 		}
 
 		pub fn is_delegator(acc: &T::AccountId) -> bool {

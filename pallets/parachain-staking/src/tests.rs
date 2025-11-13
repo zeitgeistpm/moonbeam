@@ -7330,8 +7330,10 @@ fn migrate_old_collator_snapshot_works() {
 		.execute_with(|| {
 			roll_to_round_begin(1);
 
-			let round_index = 42;
-			let candidate = 1;
+			let round_index_one = 42;
+			let round_index_two = 43;
+			let candidate_one = 1;
+			let candidate_two = 2;
 
 			let old_collator_snapshot = OldCollatorSnapshot {
 				bond: 42,
@@ -7352,51 +7354,70 @@ fn migrate_old_collator_snapshot_works() {
 				total: 72,
 			};
 			before_migration::AtStake::<Test>::insert(
-				round_index,
-				candidate,
+				round_index_one,
+				candidate_one,
+				old_collator_snapshot.clone(),
+			);
+			before_migration::AtStake::<Test>::insert(
+				round_index_two,
+				candidate_two,
 				old_collator_snapshot,
 			);
 
 			// Migrate the old snapshot to the new format
 			assert_ok!(ParachainStaking::migrate_old_collator_snapshot(
 				RuntimeOrigin::signed(2),
-				round_index,
-				candidate,
+				vec![(round_index_one, candidate_one), (round_index_two, candidate_two)],
 			));
 
-			let result = <AtStake<Test>>::get(round_index, candidate).unwrap();
-			assert_eq!(
-				result,
-				CollatorSnapshot {
-					bond: 42,
-					delegations: vec![
-						BondWithAutoCompound {
-							owner: 1,
-							amount: 10,
-							auto_compound: Percent::zero(),
-						},
-						BondWithAutoCompound {
-							owner: 2,
-							amount: 20,
-							auto_compound: Percent::zero(),
-						},
-						BondWithAutoCompound {
-							owner: 3,
-							amount: 40,
-							auto_compound: Percent::zero(),
-						},
-					],
-					total: 72,
-				},
-			);
+			for (round_index, candidate) in
+				[(round_index_one, candidate_one), (round_index_two, candidate_two)]
+			{
+				let result = <AtStake<Test>>::get(round_index, candidate).unwrap();
+				assert_eq!(
+					result,
+					CollatorSnapshot {
+						bond: 42,
+						delegations: vec![
+							BondWithAutoCompound {
+								owner: 1,
+								amount: 10,
+								auto_compound: Percent::zero(),
+							},
+							BondWithAutoCompound {
+								owner: 2,
+								amount: 20,
+								auto_compound: Percent::zero(),
+							},
+							BondWithAutoCompound {
+								owner: 3,
+								amount: 40,
+								auto_compound: Percent::zero(),
+							},
+						],
+						total: 72,
+					},
+				);
+			}
 
 			assert_noop!(
 				ParachainStaking::migrate_old_collator_snapshot(
 					RuntimeOrigin::signed(2),
-					round_index,
-					candidate,
+					vec![(round_index_one, candidate_one)],
 				),
 				<Error<Test>>::AtStakeCollatorSnapshotAlreadyMigrated
+			);
+		});
+}
+
+#[test]
+fn migrate_old_collator_snapshot_rejects_empty_input() {
+	ExtBuilder::default()
+		.build()
+		.execute_with(|| {
+			assert_noop!(
+				ParachainStaking::migrate_old_collator_snapshot(RuntimeOrigin::signed(2), vec![]),
+				<Error<Test>>::NoCollatorSnapshotMigrationsProvided
 			);
 		});
 }

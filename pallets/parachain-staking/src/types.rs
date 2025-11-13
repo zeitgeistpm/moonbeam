@@ -1620,7 +1620,7 @@ pub mod deprecated {
 	// CollatorSnapshot
 
 	#[deprecated(note = "use CollatorSnapshot with BondWithAutoCompound delegations")]
-	#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 	/// Snapshot of collator state at the start of the round for which they are selected
 	pub struct CollatorSnapshot<AccountId, Balance> {
 		/// The total value locked by the collator.

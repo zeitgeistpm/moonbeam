@@ -87,7 +87,7 @@ pub trait WeightInfo {
 	fn mint_collator_reward() -> Weight;
 	fn notify_inactive_collator() -> Weight;
 	fn mark_collators_as_inactive(x: u32, ) -> Weight;
-	fn migrate_old_collator_snapshot() -> Weight;
+	fn migrate_old_collator_snapshot(x: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_parachain_staking` using the Substrate node and recommended hardware.
@@ -903,10 +903,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(x.into()))
 	}
-	fn migrate_old_collator_snapshot() -> Weight {
+	fn migrate_old_collator_snapshot(x: u32, ) -> Weight {
+		let items = (x as u64).max(1);
 		Weight::from_parts(8_000_000, 1515)
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_mul(items)
+			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(items)))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(items)))
 	}
 }
 
@@ -1722,9 +1724,11 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(x.into()))
 	}
-	fn migrate_old_collator_snapshot() -> Weight {
+	fn migrate_old_collator_snapshot(x: u32, ) -> Weight {
+		let items = (x as u64).max(1);
 		Weight::from_parts(8_000_000, 1515)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_mul(items)
+			.saturating_add(RocksDbWeight::get().reads((3_u64).saturating_mul(items)))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(items)))
 	}
 }
