@@ -7296,30 +7296,6 @@ fn no_selected_candidates_defaults_to_last_round_collators() {
 		});
 }
 
-#[allow(deprecated)]
-use crate::types::deprecated::CollatorSnapshot as OldCollatorSnapshot;
-use crate::{BondWithAutoCompound, CollatorSnapshot};
-
-mod before_migration {
-	use super::*;
-	use crate::mock::{AccountId, Balance};
-	use crate::RoundIndex;
-	use frame_support::pallet_prelude::OptionQuery;
-	use frame_support::Twox64Concat;
-
-	#[allow(deprecated)]
-	#[frame_support::storage_alias]
-	pub type AtStake<T: crate::Config> = StorageDoubleMap<
-		crate::Pallet<T>,
-		Twox64Concat,
-		RoundIndex,
-		Twox64Concat,
-		AccountId,
-		OldCollatorSnapshot<AccountId, Balance>,
-		OptionQuery,
-	>;
-}
-
 #[test]
 fn test_delegator_scheduled_for_revoke_is_rewarded_for_previous_rounds_but_not_for_future() {
 	ExtBuilder::default()
