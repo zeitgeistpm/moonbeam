@@ -14,7 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
+use frame_support::{
+	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+	traits::OnRuntimeUpgrade,
+	weights::{Weight, WeightMeter},
+};
 
 use crate::*;
 use frame_support::pallet_prelude::*;
@@ -231,73 +235,91 @@ pub trait LegacyAtStakeMigrationList {
 	const TOTAL_KEYS: u32;
 	/// Zero-based index from which migration should start.
 	const START_INDEX: u32 = 0;
+	/// Identifier used when registering this migration with the multi-block migrator pallet.
+	const IDENTIFIER: MigrationId<{ LEGACY_AT_STAKE_MIGRATION_ID_LEN }>;
 
 	/// Return the key located at `index` if it exists.
 	fn get_key(index: u32) -> Option<LegacyAtStakeMigrationKey>;
 }
 
-#[frame_support::storage_alias]
-pub(super) type LegacyAtStakeMigrationCursor<T: Config> = StorageValue<Pallet<T>, u32, OptionQuery>;
-
-#[frame_support::storage_alias]
-pub(super) type LegacyAtStakeMigrationVersion<T: Config> = StorageValue<Pallet<T>, u32, ValueQuery>;
-
-const LEGACY_AT_STAKE_MIGRATION_COMPLETE: u32 = u32::MAX;
+/// Identifier length used when registering the legacy migration with `pallet-migrations`.
+pub const LEGACY_AT_STAKE_MIGRATION_ID_LEN: usize = 4;
 
 /// Runtime migration that processes old collator snapshots in batches using an external key
 /// provider.
 pub struct LegacyAtStakeCursorMigration<T, Source, const CHUNK: u32>(PhantomData<(T, Source)>);
 
-impl<T, Source, const CHUNK: u32> OnRuntimeUpgrade
+
+impl<T, Source, const CHUNK: u32> SteppedMigration
 	for LegacyAtStakeCursorMigration<T, Source, CHUNK>
+where
+	T: Config + frame_system::Config,
+	T::AccountId: Decode,
+	Source: LegacyAtStakeMigrationList,
+{
+	type Cursor = u32;
+	type Identifier = MigrationId<{ LEGACY_AT_STAKE_MIGRATION_ID_LEN }>;
+
+	fn id() -> Self::Identifier {
+		Source::IDENTIFIER
+	}
+
+	fn max_steps() -> Option<u32> {
+		if CHUNK == 0 {
+			return Some(0)
+		}
+
+		let total = Source::TOTAL_KEYS.saturating_sub(Source::START_INDEX);
+		let steps = total.saturating_add(CHUNK - 1) / CHUNK;
+		Some(steps.max(1))
+	}
+
+	fn step(
+		cursor: Option<Self::Cursor>,
+		meter: &mut WeightMeter,
+	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		Self::multi_block_step(cursor, meter)
+	}
+}
+
+impl<T, Source, const CHUNK: u32> LegacyAtStakeCursorMigration<T, Source, CHUNK>
 where
 	T: Config,
 	T::AccountId: Decode,
 	Source: LegacyAtStakeMigrationList,
 {
-	fn on_runtime_upgrade() -> Weight {
-		if Source::TOTAL_KEYS == 0 || CHUNK == 0 {
-			// Ensure cursor is cleared even if we have nothing to do.
-			if LegacyAtStakeMigrationCursor::<T>::take().is_some() {
-				return T::DbWeight::get().writes(1);
-			}
-			return Weight::zero();
-		}
-
+	fn multi_block_step(
+		cursor: Option<u32>,
+		meter: &mut WeightMeter,
+	) -> Result<Option<u32>, SteppedMigrationError>
+	where
+		T: frame_system::Config,
+	{
 		let db_weight = T::DbWeight::get();
-		let max_weight = T::BlockWeights::get().max_block;
-		let per_entry_weight = db_weight.reads_writes(3, 1);
-		let current_version = T::Version::get().spec_version;
+		// Each migrated entry performs a single read and write through
+		// `migrate_single_old_collator_snapshot`, so bound the iteration by that cost.
+		let per_entry_weight = db_weight.reads_writes(1, 1);
 
-		let mut total_weight = db_weight.reads(1);
-		let last_version = LegacyAtStakeMigrationVersion::<T>::get();
-		if last_version >= current_version {
-			return total_weight;
+		if Source::TOTAL_KEYS == 0 || CHUNK == 0 {
+			return Ok(None)
 		}
 
-		let mut next_index =
-			LegacyAtStakeMigrationCursor::<T>::get().unwrap_or(Source::START_INDEX);
-		total_weight = total_weight.saturating_add(db_weight.reads(1));
+		let mut next_index = cursor.unwrap_or(Source::START_INDEX);
 		next_index = next_index.max(Source::START_INDEX);
 
 		if next_index >= Source::TOTAL_KEYS {
-			LegacyAtStakeMigrationCursor::<T>::kill();
-			LegacyAtStakeMigrationVersion::<T>::put(LEGACY_AT_STAKE_MIGRATION_COMPLETE);
-			return total_weight.saturating_add(db_weight.writes(2));
+			return Ok(None)
 		}
 
 		let mut processed: u32 = 0;
 		while processed < CHUNK && next_index < Source::TOTAL_KEYS {
-			let next_weight = total_weight.saturating_add(per_entry_weight);
-			if next_weight.ref_time() > max_weight.ref_time()
-				|| next_weight.proof_size() > max_weight.proof_size()
-			{
-				log::info!(
-					target: "runtime::parachain-staking",
-					"Stopping legacy snapshot migration early due to weight limits after processing {} entries.",
-					processed
-				);
-				break;
+			if meter.try_consume(per_entry_weight).is_err() {
+				if processed == 0 {
+					return Err(SteppedMigrationError::InsufficientWeight {
+						required: per_entry_weight,
+					})
+				}
+				break
 			}
 
 			let Some(key) = Source::get_key(next_index) else {
@@ -320,29 +342,13 @@ where
 
 			processed = processed.saturating_add(1);
 			next_index = next_index.saturating_add(1);
-			total_weight = next_weight;
 		}
 
 		if processed == 0 {
-			return total_weight;
+			return Ok(Some(next_index));
 		}
 
 		let finished = next_index >= Source::TOTAL_KEYS;
-		if finished {
-			LegacyAtStakeMigrationCursor::<T>::kill();
-		} else {
-			LegacyAtStakeMigrationCursor::<T>::put(next_index);
-		}
-		total_weight = total_weight.saturating_add(db_weight.writes(1));
-
-		let version_to_store = if finished {
-			LEGACY_AT_STAKE_MIGRATION_COMPLETE
-		} else {
-			current_version
-		};
-		LegacyAtStakeMigrationVersion::<T>::put(version_to_store);
-		total_weight = total_weight.saturating_add(db_weight.writes(1));
-
 		let remaining = Source::TOTAL_KEYS.saturating_sub(next_index);
 		if finished {
 			log::info!(
@@ -360,31 +366,7 @@ where
 			);
 		}
 
-		total_weight
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		let cursor = LegacyAtStakeMigrationCursor::<T>::get().unwrap_or(Source::START_INDEX);
-		let version = LegacyAtStakeMigrationVersion::<T>::get();
-		Ok((cursor, version).encode())
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let (prev_cursor, prev_version) = <(u32, u32)>::decode(&mut &state[..])
-			.map_err(|_| "Legacy migration state decode failed")?;
-		let cursor = LegacyAtStakeMigrationCursor::<T>::get().unwrap_or(Source::TOTAL_KEYS);
-		ensure!(
-			cursor >= prev_cursor,
-			"Legacy migration cursor must not move backwards"
-		);
-		let version = LegacyAtStakeMigrationVersion::<T>::get();
-		ensure!(
-			version >= prev_version,
-			"Legacy migration version must not move backwards"
-		);
-		Ok(())
+		Ok(if finished { None } else { Some(next_index) })
 	}
 }
 
