@@ -1455,30 +1455,6 @@ pub mod pallet {
 			});
 			Ok(().into())
 		}
-
-		/// Migrates old collator snapshot data to the new format for multiple keys in a single
-		/// transaction.
-		///
-		/// Accepts a non-empty vector of `(round_index, collator_account)` pairs and migrates each
-		/// entry in order until either all succeed or one fails.
-		#[pallet::call_index(33)]
-		#[pallet::weight(<T as Config>::WeightInfo::migrate_old_collator_snapshot(
-			migrations.len().max(1) as u32
-		))]
-		pub fn migrate_old_collator_snapshot(
-			origin: OriginFor<T>,
-			migrations: Vec<(RoundIndex, T::AccountId)>,
-		) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
-			ensure!(
-				!migrations.is_empty(),
-				Error::<T>::NoCollatorSnapshotMigrationsProvided
-			);
-			for (round_index, collator) in migrations {
-				Self::migrate_single_old_collator_snapshot(round_index, collator)?;
-			}
-			Ok(().into())
-		}
 	}
 
 	/// Represents a payout made via `pay_one_collator_reward`.
