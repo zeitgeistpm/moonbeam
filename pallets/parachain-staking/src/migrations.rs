@@ -249,7 +249,6 @@ pub const LEGACY_AT_STAKE_MIGRATION_ID_LEN: usize = 4;
 /// provider.
 pub struct LegacyAtStakeCursorMigration<T, Source, const CHUNK: u32>(PhantomData<(T, Source)>);
 
-
 impl<T, Source, const CHUNK: u32> SteppedMigration
 	for LegacyAtStakeCursorMigration<T, Source, CHUNK>
 where
@@ -266,7 +265,7 @@ where
 
 	fn max_steps() -> Option<u32> {
 		if CHUNK == 0 {
-			return Some(0)
+			return Some(0);
 		}
 
 		let total = Source::TOTAL_KEYS.saturating_sub(Source::START_INDEX);
@@ -301,14 +300,14 @@ where
 		let per_entry_weight = db_weight.reads_writes(1, 1);
 
 		if Source::TOTAL_KEYS == 0 || CHUNK == 0 {
-			return Ok(None)
+			return Ok(None);
 		}
 
 		let mut next_index = cursor.unwrap_or(Source::START_INDEX);
 		next_index = next_index.max(Source::START_INDEX);
 
 		if next_index >= Source::TOTAL_KEYS {
-			return Ok(None)
+			return Ok(None);
 		}
 
 		let mut processed: u32 = 0;
@@ -317,9 +316,9 @@ where
 				if processed == 0 {
 					return Err(SteppedMigrationError::InsufficientWeight {
 						required: per_entry_weight,
-					})
+					});
 				}
-				break
+				break;
 			}
 
 			let Some(key) = Source::get_key(next_index) else {
@@ -524,6 +523,82 @@ fn compute_theoretical_first_slot<BlockNumber: Saturating + Into<u64>>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::mock::{AccountId, Balance, ExtBuilder, ParachainStaking, Test};
+	use crate::types::deprecated::CollatorSnapshot as OldCollatorSnapshot;
+	use crate::types::{Bond, BondWithAutoCompound, CollatorSnapshot};
+	use crate::RoundIndex;
+	use frame_support::storage::unhashed;
+	use sp_runtime::Percent;
+
+	const LEGACY_ROUND_START: RoundIndex = 10;
+
+	struct TestLegacyList;
+	impl LegacyAtStakeMigrationList for TestLegacyList {
+		const TOTAL_KEYS: u32 = 3;
+		const IDENTIFIER: MigrationId<{ LEGACY_AT_STAKE_MIGRATION_ID_LEN }> = MigrationId {
+			pallet_id: *b"TEST",
+			version_from: 0,
+			version_to: 1,
+		};
+
+		fn get_key(index: u32) -> Option<LegacyAtStakeMigrationKey> {
+			let collator = LEGACY_ROUND_START + index;
+			Some(LegacyAtStakeMigrationKey {
+				round_index: LEGACY_ROUND_START + index,
+				collator: collator_account_bytes(collator.into()),
+			})
+		}
+	}
+
+	struct SingleItemLegacyList;
+	impl LegacyAtStakeMigrationList for SingleItemLegacyList {
+		const TOTAL_KEYS: u32 = 1;
+		const IDENTIFIER: MigrationId<{ LEGACY_AT_STAKE_MIGRATION_ID_LEN }> = MigrationId {
+			pallet_id: *b"ONE!",
+			version_from: 0,
+			version_to: 1,
+		};
+
+		fn get_key(index: u32) -> Option<LegacyAtStakeMigrationKey> {
+			(index == 0).then_some(LegacyAtStakeMigrationKey {
+				round_index: LEGACY_ROUND_START,
+				collator: collator_account_bytes(42u64),
+			})
+		}
+	}
+
+	fn collator_account_bytes(account: AccountId) -> [u8; 32] {
+		let mut bytes = [0u8; 32];
+		bytes[..8].copy_from_slice(&account.to_le_bytes());
+		bytes
+	}
+
+	fn old_snapshot(
+		bond: Balance,
+		delegations: &[(AccountId, Balance)],
+		total: Balance,
+	) -> OldCollatorSnapshot<AccountId, Balance> {
+		OldCollatorSnapshot {
+			bond,
+			delegations: delegations
+				.iter()
+				.map(|(owner, amount)| Bond {
+					owner: *owner,
+					amount: *amount,
+				})
+				.collect(),
+			total,
+		}
+	}
+
+	fn put_old_snapshot(
+		round: RoundIndex,
+		collator: AccountId,
+		snapshot: OldCollatorSnapshot<AccountId, Balance>,
+	) {
+		let key = crate::AtStake::<Test>::hashed_key_for(round, &collator);
+		unhashed::put(&key, &snapshot);
+	}
 
 	#[test]
 	fn test_compute_theoretical_first_slot() {
@@ -531,5 +606,152 @@ mod tests {
 			compute_theoretical_first_slot::<u32>(10, 5, 100, 12_000),
 			90,
 		);
+	}
+
+	#[test]
+	fn multiply_round_len_by_2_doubles_round_and_sets_flag() {
+		ExtBuilder::default().build().execute_with(|| {
+			let db_weight = <Test as frame_system::Config>::DbWeight::get();
+			let round_before = ParachainStaking::round();
+			assert_eq!(round_before.length, 5);
+
+			let weight = MultiplyRoundLenBy2::<Test>::on_runtime_upgrade();
+
+			let round_after = ParachainStaking::round();
+			assert_eq!(round_after.length, round_before.length.saturating_mul(2));
+			assert!(has_round_length_been_multiplied());
+			assert_eq!(weight, db_weight.reads_writes(2, 2));
+		});
+	}
+
+	#[test]
+	fn multiply_round_len_by_2_is_idempotent() {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = MultiplyRoundLenBy2::<Test>::on_runtime_upgrade();
+			let round_after_first = ParachainStaking::round();
+
+			let weight = MultiplyRoundLenBy2::<Test>::on_runtime_upgrade();
+
+			assert_eq!(ParachainStaking::round().length, round_after_first.length);
+			assert!(has_round_length_been_multiplied());
+			assert_eq!(
+				weight,
+				<Test as frame_system::Config>::DbWeight::get().reads(1)
+			);
+		});
+	}
+
+	#[test]
+	fn legacy_at_stake_cursor_migration_migrates_in_chunks() {
+		ExtBuilder::default().build().execute_with(|| {
+			put_old_snapshot(
+				LEGACY_ROUND_START,
+				LEGACY_ROUND_START as AccountId,
+				old_snapshot(50, &[(1, 10), (2, 5)], 65),
+			);
+			put_old_snapshot(
+				LEGACY_ROUND_START + 1,
+				(LEGACY_ROUND_START + 1) as AccountId,
+				old_snapshot(60, &[(3, 15)], 75),
+			);
+			put_old_snapshot(
+				LEGACY_ROUND_START + 2,
+				(LEGACY_ROUND_START + 2) as AccountId,
+				old_snapshot(70, &[], 70),
+			);
+
+			assert_eq!(
+				LegacyAtStakeCursorMigration::<Test, TestLegacyList, 2>::max_steps(),
+				Some(2)
+			);
+
+			let mut meter = WeightMeter::new();
+			let cursor =
+				LegacyAtStakeCursorMigration::<Test, TestLegacyList, 2>::step(None, &mut meter)
+					.unwrap();
+			assert_eq!(cursor, Some(2));
+
+			let migrated_first =
+				crate::AtStake::<Test>::get(LEGACY_ROUND_START, LEGACY_ROUND_START as AccountId)
+					.expect("first legacy snapshot migrated");
+			assert_eq!(
+				migrated_first,
+				CollatorSnapshot {
+					bond: 50,
+					delegations: vec![
+						BondWithAutoCompound {
+							owner: 1,
+							amount: 10,
+							auto_compound: Percent::zero(),
+						},
+						BondWithAutoCompound {
+							owner: 2,
+							amount: 5,
+							auto_compound: Percent::zero(),
+						},
+					],
+					total: 65,
+				},
+			);
+
+			let migrated_second = crate::AtStake::<Test>::get(
+				LEGACY_ROUND_START + 1,
+				(LEGACY_ROUND_START + 1) as AccountId,
+			)
+			.expect("second legacy snapshot migrated");
+			assert_eq!(
+				migrated_second,
+				CollatorSnapshot {
+					bond: 60,
+					delegations: vec![BondWithAutoCompound {
+						owner: 3,
+						amount: 15,
+						auto_compound: Percent::zero(),
+					}],
+					total: 75,
+				},
+			);
+
+			let cursor =
+				LegacyAtStakeCursorMigration::<Test, TestLegacyList, 2>::step(cursor, &mut meter)
+					.unwrap();
+			assert_eq!(cursor, None);
+
+			let migrated_third = crate::AtStake::<Test>::get(
+				LEGACY_ROUND_START + 2,
+				(LEGACY_ROUND_START + 2) as AccountId,
+			)
+			.expect("third legacy snapshot migrated");
+			assert_eq!(
+				migrated_third,
+				CollatorSnapshot {
+					bond: 70,
+					delegations: Vec::new(),
+					total: 70
+				},
+			);
+		});
+	}
+
+	#[test]
+	fn legacy_at_stake_cursor_migration_respects_weight_meter() {
+		ExtBuilder::default().build().execute_with(|| {
+			put_old_snapshot(LEGACY_ROUND_START, 42u64, old_snapshot(5, &[], 5));
+
+			let mut meter = WeightMeter::with_limit(Weight::zero());
+			let result = LegacyAtStakeCursorMigration::<Test, SingleItemLegacyList, 1>::step(
+				None, &mut meter,
+			);
+
+			assert!(matches!(
+				result,
+				Err(SteppedMigrationError::InsufficientWeight { .. })
+			));
+
+			let key = crate::AtStake::<Test>::hashed_key_for(LEGACY_ROUND_START, &42u64);
+			let stored: OldCollatorSnapshot<AccountId, Balance> =
+				unhashed::get(&key).expect("legacy snapshot preserved when no weight");
+			assert_eq!(stored.bond, 5);
+		});
 	}
 }
